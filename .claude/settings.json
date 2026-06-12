@@ -1,20 +1,34 @@
 {
   "permissions": {
     "allow": [
-      "Bash(npm install:*)",
-      "Bash(npm run:*)",
+      "Bash(pnpm install:*)",
+      "Bash(pnpm run:*)",
+      "Bash(pnpm --filter:*)",
+      "Bash(pnpm typecheck:*)",
+      "Bash(pnpm build:*)",
+      "Bash(pnpm dev:*)",
+      "Bash(pnpm db:generate:*)",
+      "Bash(pnpm scaffold:*)",
+      "Bash(pnpm exec cdk synth:*)",
+      "Bash(pnpm exec cdk diff:*)",
       "Bash(npx tsc:*)",
-      "Bash(npx cdk:*)",
-      "Bash(aws s3:*)",
-      "Bash(aws cloudfront:*)",
-      "Bash(aws cloudformation:*)",
-      "Bash(aws sts:*)",
-      "Bash(aws ssm:*)",
+      "Bash(aws sts get-caller-identity:*)",
+      "Bash(aws cloudformation describe-stacks:*)",
+      "Bash(aws ssm get-parameter:*)",
       "Bash(git:*)",
+      "Bash(gh pr:*)",
+      "Bash(gh run:*)",
       "Bash(mkdir:*)",
       "Bash(cp:*)",
       "Bash(ls:*)",
       "Bash(cat:*)"
+    ],
+    "deny": [
+      "Bash(cdk deploy:*)",
+      "Bash(pnpm exec cdk deploy:*)",
+      "Bash(aws ssm put-parameter:*)",
+      "Bash(aws s3 cp:*)",
+      "Bash(aws s3 sync:*)"
     ]
   }
 }

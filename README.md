@@ -84,9 +84,28 @@ Full rationale, principles, and rejected alternatives are in
 
 ## Status
 
-- Design phase. No working code yet.
-- Next step: validate the cold-start and deploy ergonomics with a hello-world Fastify +
-  LWA proof-of-concept before committing to the stack in a real template repo.
+- Monorepo restructure landed: `apps/_template/` is a working default-stack
+  skeleton (Fastify + Eta + HTMX + Lit, Drizzle + DSQL, LWA Dockerfile, CDK
+  stack), with `pnpm scaffold`, path-filtered CI, and the OIDC deploy workflow
+  in place. `apps/_template-spa/` holds the React escape-hatch frontend,
+  pending rewiring to the unified backbone.
+- Typecheck, build, and a local server smoke test pass; **not yet deployed**.
+- Next step: the end-to-end PoC — deploy `_template` to dev (Docker build,
+  cold start, OAuth redirect, DSQL migration) and validate the charter's
+  cold-start and cost claims (charter §8.2).
+
+## Repo layout
+
+```
+├── apps/
+│   ├── _template/       # canonical default-stack skeleton (pnpm scaffold copies this)
+│   ├── _template-spa/   # React + Vite escape-hatch frontend (pending rewiring)
+│   └── <app-name>/      # live apps, one directory each
+├── packages/            # shared libs (extracted on real duplication, not before)
+├── scripts/             # scaffold.mjs, random-slug.sh, admin IAM bootstrap
+├── .github/workflows/   # ci.yml (path-filtered), deploy.yml (per-app OIDC)
+└── docs/                # charter, setup, environments, adding-features
+```
 
 ## Related context
 

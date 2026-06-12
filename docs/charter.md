@@ -602,24 +602,32 @@ These are not blockers but should be resolved before the template repo is finali
    equivalent React + Vite build to confirm bundle-size and DX claims.
 3. Resolve the remaining open questions in §7 (IAM namespace, Django lane,
    ruleset scope, gatekeeper team, deploy-notification channel, local dev).
-4. Restructure the existing `gz-webapp-template` repo (or rename it, e.g.
-   `gz-webapps`) into the monorepo shape from §4.2: `apps/_template/`,
-   `apps/` for live apps, `packages/` for shared libs, `pnpm-workspace.yaml`
-   at the root. Land this on `feature/unified-template` and merge once
-   reviewed.
-5. Migrate the existing template's reusable pieces (`rbac.ts`, Google OAuth
-   flow, IAM scaffolding, CDK constructs) into `apps/_template/` and/or
-   `packages/`.
-6. Author the conversational scaffolding flow described in §3.3 + §4.3 — a
-   thin `pnpm scaffold` script the LLM calls after the conversation, plus
-   the LLM coaching doc that tells it what to ask and what to fill in.
+4. ~~Restructure the repo into the monorepo shape from §4.2.~~ **Done
+   2026-06-12** on `feature/unified-template`: `apps/_template/` (working
+   default-stack skeleton), `apps/_template-spa/` (escape-hatch frontend,
+   pending rewiring to the unified backbone — see its README), `packages/`,
+   `pnpm-workspace.yaml`.
+5. ~~Migrate the existing template's reusable pieces.~~ **Done 2026-06-12.**
+   RBAC/JWT/OAuth rewritten for the server-side flow in
+   `apps/_template/src/auth/`; GZ theme tokens in `public/styles.css`; IAM
+   admin scaffolding kept at `scripts/admin/`; CDK rebuilt as `WebappStack`
+   (DSQL + Lambda container + CloudFront). The old zip-Lambda + API Gateway +
+   DynamoDB stack is deleted (lives in git history).
+6. ~~Author the conversational scaffolding flow (§3.3 + §4.3).~~ **Done
+   2026-06-12**: `pnpm scaffold` (`scripts/scaffold.mjs`) + the coaching doc
+   `.claude/commands/gz:webapp:new-app.md`.
 7. Set up branch protection on `main` and create the
-   `@goalzero26503/webapp-gatekeepers` team for the root CODEOWNERS entry.
-8. Build `.github/workflows/`: `ci.yml` (lint + typecheck + tests + `cdk diff`
-   comment, path-filtered per app) and `deploy.yml` (per-app matrix,
-   OIDC-federated CDK deploy on merge to `main`).
-9. Author the in-repo `.claude/CLAUDE.md` (and per-app `.claude/CLAUDE.md`
-   files via the scaffold) that coaches non-technical creators through the
-   lifecycle described in §4.4.
-10. Document the developer workflow: scaffold a new app, local dev, open a
-    PR, scaffold a new page / API route, scaffold a new table.
+   `@goalzero26503/webapp-gatekeepers` team for the root CODEOWNERS entry
+   (the CODEOWNERS file already references it).
+8. ~~Build `.github/workflows/`.~~ **Done 2026-06-12**: `ci.yml`
+   (path-filtered typecheck/build/synth per changed app; `cdk diff` PR
+   comment still TODO pending the per-app OIDC read roles) and `deploy.yml`
+   (per-app matrix, GitHub-Environment-scoped OIDC, deploy + drizzle
+   migration on merge to `main`).
+9. ~~Author the in-repo `.claude/CLAUDE.md`.~~ **Done 2026-06-12**: root
+   `.claude/CLAUDE.md` (creator coaching per §4.7) + per-app
+   `.claude/CLAUDE.md` via the scaffold.
+10. ~~Document the developer workflow.~~ **Done 2026-06-12**: `docs/setup.md`
+    (creator + gatekeeper halves), `docs/adding-features.md`,
+    `docs/environments.md`, and `.agents/docs/*` rewritten for the unified
+    stack.
