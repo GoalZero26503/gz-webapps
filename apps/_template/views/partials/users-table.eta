@@ -11,7 +11,7 @@
   </thead>
   <tbody>
     <% it.users.forEach((row) => { %>
-      <%~ include('partials/user-row', { user: it.user, row }) %>
+      <%~ include('./user-row', { user: it.user, row }) %>
     <% }) %>
   </tbody>
 </table>

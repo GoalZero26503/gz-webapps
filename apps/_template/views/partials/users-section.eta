@@ -2,5 +2,5 @@
   <% if (it.error) { %>
   <div class="callout callout-error"><%= it.error %></div>
   <% } %>
-  <%~ include('partials/users-table', { user: it.user, users: it.users }) %>
+  <%~ include('./users-table', { user: it.user, users: it.users }) %>
 </div>
