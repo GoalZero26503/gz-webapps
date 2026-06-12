@@ -422,7 +422,7 @@ that's expected and acceptable. The discipline is on the **idle floor**.
 
 Recording rejected options so future-us doesn't re-litigate them.
 
-### 5.1 Django + EC2 (Anthony's original proposal, based on `BioLite/burndown`)
+### 6.1 Django + EC2 (Anthony's original proposal, based on `BioLite/burndown`)
 
 - **Strengths:** Mature batteries-included framework; admin, ORM, forms, auth,
   migrations out of the box; one process, one box, dead simple; relational-native;
@@ -448,7 +448,7 @@ Recording rejected options so future-us doesn't re-litigate them.
 - **Python remains the right tool for offline work** — firmware support tooling,
   lab data scripts, one-off automation, CI helpers. Just not for webapps.
 
-### 5.2 Next.js / Remix (full-stack React frameworks with SSR)
+### 6.2 Next.js / Remix (full-stack React frameworks with SSR)
 
 - **Why rejected:** Our default is Eta + HTMX + Lit (SSR) with React + Vite as a
   narrow SPA escape hatch — neither shape is Next.js/Remix-shaped. Next.js's
@@ -458,13 +458,13 @@ Recording rejected options so future-us doesn't re-litigate them.
   server-rendering with Eta/HTMX (much smaller JS bundles) or shipping a plain
   Vite SPA when an escape-hatch case genuinely warrants it.
 
-### 5.3 Express.js
+### 6.3 Express.js
 
 - **Why rejected:** Effectively in maintenance mode (Express 5 only just shipped
   after years of dormancy; ecosystem still largely on Express 4). Fastify is
   materially faster, has better TypeScript support, and has more momentum.
 
-### 5.4 AWS App Runner
+### 6.4 AWS App Runner
 
 - **Status:** In maintenance mode as of April 30, 2026. No new customers accepted.
   Existing customers (including GZ accounts that already host
@@ -474,7 +474,7 @@ Recording rejected options so future-us doesn't re-litigate them.
   AWS has publicly committed not to invest in is asking for a forced migration in
   18–36 months. Cost-attractive, but the dead-end trajectory disqualifies it.
 
-### 5.5 ECS Express Mode
+### 6.5 ECS Express Mode
 
 - **Why rejected as default:** ALB (Application Load Balancing) cost (~$16–22/mo)
   plus a minimum running Fargate task (~$9/mo) gives a fixed floor of ~$25–35/mo
@@ -483,14 +483,14 @@ Recording rejected options so future-us doesn't re-litigate them.
 - **Still the right answer** for an app that genuinely needs always-on container
   semantics, WebSockets at scale, or workloads that exceed Lambda's limits.
 
-### 5.6 Lightsail Containers
+### 6.6 Lightsail Containers
 
 - **Why rejected:** Fixed $7/mo/app even for the Nano tier; doesn't scale to zero.
   $140/mo for 20 apps is better than ECS EM but still ~$140 worse than the Lambda
   Web Adapter path. The fixed pricing is appealing for budgeting, but we lose the
   variable-cost discipline.
 
-### 5.7 Lambda zip + native handler
+### 6.7 Lambda zip + native handler
 
 - **Why rejected as the *default*:** Each route needs to be a Lambda handler with
   API Gateway routing — exactly the shape of the current `gz-webapp-template`.
@@ -501,7 +501,7 @@ Recording rejected options so future-us doesn't re-litigate them.
 - **Still appropriate** for the rare app that's just two or three endpoints and
   obviously KV-shaped — but that's an escape hatch, not the template.
 
-### 5.8 Aurora Serverless v2 (Postgres)
+### 6.8 Aurora Serverless v2 (Postgres)
 
 - **Why not preferred over DSQL:** Aurora Serverless v2 now scales to zero
   (changed earlier in 2025), but it's still a single-region, single-writer
@@ -512,7 +512,7 @@ Recording rejected options so future-us doesn't re-litigate them.
   support (DSQL is wire-compatible with Postgres but doesn't have full feature
   parity).
 
-### 5.9 SQLite + Litestream on EBS-attached Fargate
+### 6.9 SQLite + Litestream on EBS-attached Fargate
 
 - **Why not chosen as default:** This is the polished modern form of the
   `yeti-inspector-backend` pattern, but it inherits the same ECS EM cost floor
@@ -520,12 +520,46 @@ Recording rejected options so future-us doesn't re-litigate them.
   that fits, it's a great option — but DSQL covers the same use case with no cost
   floor and no single-writer constraint.
 
-### 5.10 LiteFS / Turso / Cloudflare D1
+### 6.10 LiteFS / Turso / Cloudflare D1
 
 - **Why rejected:** LiteFS is in pre-1.0 limbo (Fly.io sunset LiteFS Cloud in Oct
   2024, active development deprioritized). Turso and D1 are interesting but pull
   data outside AWS, add a second vendor to secure and budget for, and break the
   "AWS-native" principle. None are good defaults for an internal AWS-only fleet.
+
+### 6.11 GitHub OAuth as the identity provider
+
+- **Context (2026-06-12):** Dorian (BioLite firmware) built a webapp loosely
+  based on the old template using GitHub OAuth instead of Google. The
+  underlying instinct — "we already maintain access groups in GitHub, reuse
+  them" — deserves an answer on record.
+- **Why rejected as primary sign-in:**
+  1. *Identity coverage.* Every employee has a company Google Workspace
+     account by construction; that's the corporate identity provider. GitHub
+     accounts are opt-in, often personal, and each org member is a paid seat
+     on paid plans. The fleet's user base (§4: CS leads, ops managers, lab
+     techs) is exactly the population least likely to have one. "Who can use
+     internal apps" must not be coupled to "who we pay GitHub seats for."
+  2. *Offboarding.* Disabling a Google account ends access to every app the
+     same day. GitHub org membership is a separate offboarding step on top of
+     a personal account that persists. There is no clean equivalent of the
+     Google `hd` domain claim — org-membership checks need an extra API call
+     and an org-read scope grant.
+  3. *One mental model (§2.1).* Two blessed sign-in paths means two login
+     flows, two secret sets per app, and two failure modes — for zero new
+     capability, since the per-user allowlist + roles in the database already
+     handles authZ.
+- **The sanctioned pattern — "Connect GitHub" as a linked identity, never the
+  primary identity driver:** for apps whose subject matter *is* GitHub (PR
+  dashboards, repo tooling), sign-in stays Google; the app offers a
+  post-login "Connect GitHub" OAuth flow and stores the linked credential as
+  a resource connection for calling GitHub APIs as that user. If an app ever
+  genuinely needs GitHub-team-derived permissions, the shape is a server-side
+  sync (GitHub App installation token mapping team membership → app role at
+  login or on a schedule) — viewers without GitHub accounts can still be
+  granted roles manually, and no seat is required just to use the app. This
+  linking pattern is per-app custom for now, not part of the template
+  skeleton; extract to `packages/` only when a second app needs it.
 
 ## 7. Open questions
 

@@ -56,6 +56,21 @@ roles strictly below your own. Apps add app-specific permissions to
 `PERMISSIONS` and grant them in `ROLE_PERMISSIONS`; permissions are resolved
 at login and embedded in the JWT.
 
+## GitHub: linked identity only, never primary
+
+Google is the **only** sign-in method. Do not implement GitHub OAuth as an
+app's login, even for developer-facing tools (charter §6.11 has the full
+reasoning — seat cost, identity coverage, offboarding).
+
+For apps whose subject matter is GitHub (PR dashboards, repo tooling), the
+sanctioned pattern is a **post-login "Connect GitHub" flow**: the
+Google-authenticated user links their GitHub account, and the app stores that
+credential as a resource connection for calling GitHub APIs on their behalf.
+Roles still come from the app's `users` table; GitHub-team-derived roles, if
+ever needed, are a server-side sync via a GitHub App installation token — not
+a login-path dependency. This linking pattern is per-app custom for now (not
+in the template skeleton).
+
 ## Google OAuth client (per app, per stage)
 
 Created in Google Cloud Console (type: Web application):
