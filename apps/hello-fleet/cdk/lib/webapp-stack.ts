@@ -60,7 +60,7 @@ export class WebappStack extends cdk.Stack {
         STAGE: stage,
         DSQL_ENDPOINT: dsqlEndpoint,
         SEED_ADMIN_EMAIL: seedAdminEmail,
-        ALLOWED_DOMAINS: 'bioliteenergy.com,goalzero.com',
+        ALLOWED_DOMAINS: 'bioliteenergy.com',
         ...(baseUrlOverride || domainName
           ? { APP_BASE_URL: baseUrlOverride ?? `https://${domainName}` }
           : {}),

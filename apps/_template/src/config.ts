@@ -53,7 +53,7 @@ export async function loadConfig(): Promise<AppConfig> {
     appName,
     stage,
     baseUrl: process.env.APP_BASE_URL || 'http://localhost:3000',
-    allowedDomains: (process.env.ALLOWED_DOMAINS || 'bioliteenergy.com,goalzero.com')
+    allowedDomains: (process.env.ALLOWED_DOMAINS || 'bioliteenergy.com')
       .split(',')
       .map((d) => d.trim())
       .filter(Boolean),
