@@ -1,6 +1,7 @@
 {
   "app": "tsx cdk/bin/app.ts",
   "context": {
-    "@aws-cdk/core:newStyleStackSynthesis": true
+    "@aws-cdk/core:newStyleStackSynthesis": true,
+    "baseUrl": "https://d3hh9512wgtw48.cloudfront.net"
   }
 }
