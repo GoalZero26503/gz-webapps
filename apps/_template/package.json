@@ -8,7 +8,7 @@
     "dev": "tsx watch src/server.ts",
     "build": "pnpm build:server && pnpm build:client",
     "build:server": "tsc -p tsconfig.build.json",
-    "build:client": "esbuild client/index.ts --bundle --format=esm --minify --sourcemap --outfile=public/assets/app.js && mkdir -p public/vendor && cp node_modules/htmx.org/dist/htmx.min.js public/vendor/htmx.min.js",
+    "build:client": "esbuild client/index.ts --bundle --format=esm --minify --sourcemap --tsconfig=tsconfig.client.json --target=es2022 --outfile=public/assets/app.js && mkdir -p public/vendor && cp node_modules/htmx.org/dist/htmx.min.js public/vendor/htmx.min.js",
     "typecheck": "tsc --noEmit && tsc -p tsconfig.client.json",
     "db:generate": "drizzle-kit generate",
     "db:push": "drizzle-kit push",

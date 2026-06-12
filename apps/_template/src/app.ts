@@ -28,12 +28,14 @@ export function buildApp(): FastifyInstance {
     viewExt: 'eta',
     defaultContext: { appName: getConfig().appName, stage: getConfig().stage },
   });
+  // no-cache + ETag: bundles aren't content-hashed, so clients must
+  // revalidate (cheap 304s) rather than serve stale JS after a deploy
   app.register(fastifyStatic, {
     root: path.join(rootDir, 'public'),
     prefix: '/',
     wildcard: false,
     cacheControl: true,
-    maxAge: '1d',
+    maxAge: 0,
   });
 
   app.register(authPlugin);
