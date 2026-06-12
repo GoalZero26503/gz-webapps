@@ -12,13 +12,13 @@ FROM --platform=$BUILDPLATFORM public.ecr.aws/docker/library/node:22-slim AS bui
 ARG APP_DIR
 RUN corepack enable
 WORKDIR /repo
-COPY pnpm-workspace.yaml package.json pnpm-lock.yaml ./
+COPY pnpm-workspace.yaml package.json pnpm-lock.yaml tsconfig.base.json ./
 COPY ${APP_DIR}/package.json ${APP_DIR}/
 COPY packages/ packages/
 RUN pnpm install --frozen-lockfile --filter "./${APP_DIR}"
 COPY ${APP_DIR}/ ${APP_DIR}/
 RUN pnpm --filter "./${APP_DIR}" build && \
-    pnpm --filter "./${APP_DIR}" --prod deploy /out
+    pnpm --filter "./${APP_DIR}" --prod deploy --legacy /out
 
 # Runtime: plain Node container + Lambda Web Adapter extension. The adapter
 # translates Lambda invocations into HTTP against the Fastify server, holding
