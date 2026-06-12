@@ -1,5 +1,5 @@
 {
-  "name": "{{APP_NAME}}-webapp",
+  "name": "gzweb-spa-template",
   "version": "0.1.0",
   "private": true,
   "type": "module",
