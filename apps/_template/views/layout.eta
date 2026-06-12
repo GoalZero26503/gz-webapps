@@ -6,6 +6,9 @@
   <title><%= it.title ? `${it.title} — ` : '' %>{{APP_DISPLAY_NAME}}</title>
   <link rel="icon" href="/favicon.ico" sizes="32x32" />
   <link rel="stylesheet" href="/styles.css" />
+  <link rel="stylesheet" href="/vendor/lucide/lucide.css" />
+  <!-- Font Awesome is vendored too; uncomment to opt in (see conventions.md → Icons):
+  <link rel="stylesheet" href="/vendor/fontawesome/css/all.min.css" /> -->
   <script src="/vendor/htmx.min.js" defer></script>
   <script type="module" src="/assets/app.js"></script>
 </head>
@@ -18,12 +21,12 @@
       <% if (it.stage !== 'prod') { %><span class="badge badge-stage"><%= it.stage %></span><% } %>
     </a>
     <nav class="topbar-nav">
-      <a href="/">Dashboard</a>
-      <% if (it.user.permissions.includes('users:read')) { %><a href="/users">Users</a><% } %>
+      <a href="/"><i class="icon-layout-dashboard"></i> Dashboard</a>
+      <% if (it.user.permissions.includes('users:read')) { %><a href="/users"><i class="icon-users"></i> Users</a><% } %>
     </nav>
     <div class="topbar-user">
       <span class="topbar-email"><%= it.user.email %></span>
-      <form method="post" action="/auth/logout"><button class="btn btn-ghost" type="submit">Sign out</button></form>
+      <form method="post" action="/auth/logout"><button class="btn btn-ghost" type="submit"><i class="icon-log-out"></i> Sign out</button></form>
     </div>
   </header>
   <% } %>

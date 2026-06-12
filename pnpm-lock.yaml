@@ -28,6 +28,9 @@ importers:
       '@fastify/view':
         specifier: ^10.0.2
         version: 10.0.2
+      '@fortawesome/fontawesome-free':
+        specifier: ^7.2.0
+        version: 7.2.0
       drizzle-orm:
         specifier: ^0.41.0
         version: 0.41.0(@types/pg@8.20.0)(gel@2.2.0)(pg@8.21.0)
@@ -46,6 +49,9 @@ importers:
       lit:
         specifier: ^3.2.1
         version: 3.3.3
+      lucide-static:
+        specifier: ^1.18.0
+        version: 1.18.0
       pg:
         specifier: ^8.13.3
         version: 8.21.0
@@ -928,6 +934,10 @@ packages:
   '@fastify/view@10.0.2':
     resolution: {integrity: sha512-tGjXFyDUMj5a+E8BBrQ2wpsVnpOfMq3cqy4WD8pnjWPE/HGNItBASUPoPUcX/QjPhxfuZZTYv2XdCmKXdcMZPw==}
 
+  '@fortawesome/fontawesome-free@7.2.0':
+    resolution: {integrity: sha512-3DguDv/oUE+7vjMeTSOjCSG+KeawgVQOHrKRnvUuqYh1mfArrh7s+s8hXW3e4RerBA1+Wh+hBqf8sJNpqNrBWg==}
+    engines: {node: '>=6'}
+
   '@isaacs/cliui@9.0.0':
     resolution: {integrity: sha512-AokJm4tuBHillT+FpMtxQ60n8ObyXBatq7jD2/JA9dxbDDokKQm8KMht5ibGzLVU9IJDIKK4TPKgMHEYMn3lMg==}
     engines: {node: '>=18'}
@@ -1726,6 +1736,9 @@ packages:
 
   lru-cache@5.1.1:
     resolution: {integrity: sha512-KpNARQA3Iwv+jTA0utUVVbrh+Jlrr1Fv0e56GGzAFOXN7dk/FviaDW8LHmK52DlcH4WP2n6gI8vN1aesBFgo9w==}
+
+  lucide-static@1.18.0:
+    resolution: {integrity: sha512-0WRXLQnjbte5SXuzom6yfeGlVSFsEsC9rzxn66DZN0pXows3+N34CQHy3BHI1qA3uH7u/SUzx8LQhjeAnxd8JQ==}
 
   magic-string@0.30.21:
     resolution: {integrity: sha512-vd2F4YUyEXKGcLHoq+TEyCjxueSeHnFxyyjNp80yg0XV4vUhnDer/lvvlqM/arB5bXQN5K2/3oinyCRyx8T2CQ==}
@@ -2770,6 +2783,8 @@ snapshots:
       fastify-plugin: 5.1.0
       toad-cache: 3.7.1
 
+  '@fortawesome/fontawesome-free@7.2.0': {}
+
   '@isaacs/cliui@9.0.0': {}
 
   '@jridgewell/gen-mapping@0.3.13':
@@ -3494,6 +3509,8 @@ snapshots:
   lru-cache@5.1.1:
     dependencies:
       yallist: 3.1.1
+
+  lucide-static@1.18.0: {}
 
   magic-string@0.30.21:
     dependencies:

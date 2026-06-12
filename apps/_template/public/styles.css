@@ -294,3 +294,9 @@ select:focus {
   opacity: 0.6;
   pointer-events: none;
 }
+
+/* Icon font alignment (Lucide .icon-*, Font Awesome .fa-*) */
+[class^='icon-'],
+[class*=' icon-'] {
+  vertical-align: -0.12em;
+}

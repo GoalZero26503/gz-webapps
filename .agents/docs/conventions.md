@@ -44,6 +44,22 @@
 - Lit components consume the same tokens with fallbacks:
   `var(--gz-green, #bfd22b)`.
 
+## Icons
+
+Two icon-font libraries are vendored at build time (`scripts/copy-vendor.mjs`
+→ `public/vendor/`, self-hosted like HTMX — never use a CDN):
+
+- **Lucide** (default, loaded in `layout.eta`): `<i class="icon-users"></i>`,
+  `<i class="icon-chart-line"></i>`. Names at lucide.dev/icons. Prefer this —
+  it matches the design language; the browser only downloads the font when a
+  page actually uses an icon class.
+- **Font Awesome Free** (vendored, opt-in): uncomment its `<link>` in
+  `layout.eta` when an app needs FA's coverage (brand logos, etc.):
+  `<i class="fa-solid fa-bolt"></i>`, `<i class="fa-brands fa-github"></i>`.
+
+Don't mix both for the same purpose in one app; pick Lucide unless there's a
+concrete gap. Icons inherit `font-size` and `color` from their context.
+
 ## Naming
 
 - App slug: kebab-case; AWS resources `gzweb-{stage}-{app}-*`; stacks
