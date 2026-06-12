@@ -1,220 +1,75 @@
 # Code Conventions
 
+## TypeScript / ESM
+
+- Node 22, TS strict, `"type": "module"`, `module: NodeNext` — **relative
+  imports require the `.js` extension** (`./config.js`, not `./config`).
+- Server code compiled by `tsc` to `dist/`; client code bundled by esbuild;
+  `tsx` runs TS directly in dev and for CDK.
+- One workspace per app; shared root `tsconfig.base.json`. No cross-app
+  imports — shared code is extracted to `packages/` (with gatekeeper review),
+  never imported across `apps/`.
+
+## Fastify
+
+- Routes are plugin functions (`async (app) => {...}`) registered in
+  `src/app.ts`; auth guards as route-level `preHandler`, never inline checks.
+- Type bodies/params/querystring via route generics
+  (`app.post<{ Body: {...} }>`).
+- Config access via `getConfig()` — never `process.env` outside `config.ts`.
+- HTTP errors via `reply.code(...).send(...)`; don't throw for expected
+  failures.
+
+## Eta views
+
+- `views/<page>.eta` for pages (start with `<% layout('layout') %>`),
+  `views/partials/` for HTMX fragments.
+- Data via `it.*`. Escaped output `<%= %>` by default; raw `<%~ %>` only for
+  `include()` and the layout body slot.
+- Keep logic in routes; templates render, they don't compute.
+
+## Drizzle / Aurora DSQL
+
+- Schema in `src/db/schema.ts`; access via `getDb()` only.
+- After schema changes: `pnpm db:generate`, commit `drizzle/`.
+- DSQL constraints: no foreign keys, no serial/sequences, no extensions —
+  text/uuid primary keys, relations enforced in code.
+- snake_case column names mapped to camelCase TS properties.
+
+## CSS / theming
+
+- Plain CSS in `public/styles.css` built on the `--gz-*` design tokens (dark
+  theme). No Tailwind in the default stack; reuse existing component classes
+  (`.btn`, `.card`, `.badge`, `.data-table`, `.callout`) before adding new ones.
+- Lit components consume the same tokens with fallbacks:
+  `var(--gz-green, #bfd22b)`.
+
+## Icons
+
+Two icon-font libraries are vendored at build time (`scripts/copy-vendor.mjs`
+→ `public/vendor/`, self-hosted like HTMX — never use a CDN):
+
+- **Lucide** (default, loaded in `layout.eta`): `<i class="icon-users"></i>`,
+  `<i class="icon-chart-line"></i>`. Names at lucide.dev/icons. Prefer this —
+  it matches the design language; the browser only downloads the font when a
+  page actually uses an icon class.
+- **Font Awesome Free** (vendored, opt-in): uncomment its `<link>` in
+  `layout.eta` when an app needs FA's coverage (brand logos, etc.):
+  `<i class="fa-solid fa-bolt"></i>`, `<i class="fa-brands fa-github"></i>`.
+
+Don't mix both for the same purpose in one app; pick Lucide unless there's a
+concrete gap. Icons inherit `font-size` and `color` from their context.
+
 ## Naming
 
-| Context | Convention | Example |
-|---------|-----------|---------|
-| Files | kebab-case | `user-management.tsx`, `handler.ts` |
-| React components | PascalCase (named export) | `export function UserManagement()` |
-| Functions / variables | camelCase | `getStoredAuth()`, `const appUser` |
-| Types / interfaces | PascalCase | `AppUser`, `Permission` |
-| Constants | UPPER_SNAKE_CASE | `APP_ROLES`, `ROLE_HIERARCHY` |
-| DynamoDB table names | `gzweb-{stage}-{app}-{TableName}` | `gzweb-dev-fleet-tracker-User` |
-| Lambda function names | `gzweb-{stage}-{app}-{handler}` | `gzweb-dev-fleet-tracker-auth` |
-| S3 bucket names | `gzweb-{stage}-{app}-{purpose}` | `gzweb-dev-fleet-tracker-webapp` |
-| SSM parameter paths | `/gzweb/{app}/{stage}/{param}` | `/gzweb/fleet-tracker/dev/jwt_secret` |
+- App slug: kebab-case; AWS resources `gzweb-{stage}-{app}-*`; stacks
+  `GzWeb-{AppPascal}-{stage}`; SSM `/gzweb/{app}/{stage}/*`.
+- Lit components: `gz-` tag prefix (`gz-sparkline`).
+- Branches: `<gh-username>/<short-description>`.
 
-## Lambda Handlers
+## Placeholders (template only)
 
-### Routing Pattern
-
-Each Lambda handler exports a single `handler` function that routes internally:
-
-```typescript
-export async function handler(event: APIGatewayProxyEventV2): Promise<APIGatewayProxyResultV2> {
-  if (event.requestContext.http.method === 'OPTIONS') return json(204, '');
-
-  const path = event.rawPath;
-  const method = event.requestContext.http.method;
-
-  if (path === '/api/items' && method === 'GET') return listItems(event);
-  if (path === '/api/items' && method === 'POST') return createItem(event);
-
-  return json(404, { error: 'Not found' });
-}
-```
-
-### Response Pattern
-
-Always return via the `json()` helper from `lambda/shared/rbac.ts`. Never throw exceptions for HTTP errors.
-
-```typescript
-// Correct
-return json(400, { error: 'email required' });
-
-// Incorrect - never do this
-throw new Error('email required');
-```
-
-Available response helpers:
-- `json(statusCode, body)`: General purpose
-- `badRequest(message)`: 400
-- `unauthorized(message?)`: 401
-- `forbidden(message?)`: 403
-- `notFound(message?)`: 404
-
-### Authentication Pattern
-
-For routes that require auth:
-
-```typescript
-async function handleProtectedRoute(event: APIGatewayProxyEventV2) {
-  const user = await authenticateRequest(event);
-  if (!user) return unauthorized();
-  if (!hasPermission(user, 'some:permission')) return forbidden();
-
-  // ... handler logic
-}
-```
-
-### Body Parsing
-
-Parse request bodies safely:
-
-```typescript
-const body = JSON.parse(event.body || '{}') as { email?: string };
-if (!body.email) return badRequest('email required');
-```
-
-## DynamoDB
-
-### Table Names
-
-Use the `appTable()` helper from `lambda/shared/dynamo.ts`:
-
-```typescript
-const TABLE = appTable('Device');
-// Resolves to: gzweb-{stage}-{app}-Device (e.g. gzweb-dev-fleet-tracker-Device)
-```
-
-### CDK Table Definitions
-
-New tables should always use:
-- `billingMode: dynamodb.BillingMode.PAY_PER_REQUEST` (on-demand, no capacity planning)
-- `removalPolicy: cdk.RemovalPolicy.RETAIN` (prevent accidental data loss)
-- `pointInTimeRecovery: true` (enable point-in-time recovery backups)
-
-```typescript
-const deviceTable = new dynamodb.Table(this, 'DeviceTable', {
-  tableName: `gzweb-${stage}-${appSlug}-Device`,
-  partitionKey: { name: 'deviceId', type: dynamodb.AttributeType.STRING },
-  billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
-  removalPolicy: cdk.RemovalPolicy.RETAIN,
-  pointInTimeRecovery: true,
-});
-```
-
-### DynamoDB Helpers
-
-Available from `lambda/shared/dynamo.ts`:
-- `getItem<T>(table, key)`: Get a single item
-- `putItem(table, item)`: Put an item (create or overwrite)
-- `queryItems<T>(table, keyCondition, values, options?)`: Query with key condition
-- `scanItems<T>(table, options?)`: Scan (use sparingly)
-- `updateItem(table, key, expression, values, names?)`: Update specific attributes
-- `deleteItem(table, key)`: Delete an item
-
-## AWS SDK
-
-### Client Instantiation
-
-Instantiate AWS SDK clients once at module scope. This allows Lambda to reuse connections across warm invocations:
-
-```typescript
-// Module scope (top of file)
-const ssm = new SSMClient({});
-let cachedValue: string | null = null;
-
-// Inside handler
-async function getValue() {
-  if (cachedValue) return cachedValue;
-  // ... fetch and cache
-}
-```
-
-### SSM Parameter Caching
-
-SSM values are cached in module-scope variables. On a warm Lambda, the cached value is reused without an SSM call. On a cold start, the value is fetched once and cached.
-
-## Frontend
-
-### Page Structure
-
-Pages live in `webapp/src/pages/`. Each page is a named export:
-
-```typescript
-export function DeviceList() {
-  return (
-    <div className="page-padding">
-      <h1 className="text-lg font-semibold text-text-primary mb-6">Devices</h1>
-      {/* page content */}
-    </div>
-  );
-}
-```
-
-### Component Organization
-
-- `webapp/src/pages/`: Page-level components (one per route)
-- `webapp/src/components/`: Shared components (Topbar, buttons, modals, etc.)
-- `webapp/src/lib/`: Utilities, API client, auth helpers, types
-
-### CSS and Styling
-
-The app uses Tailwind CSS v4 for layout and spacing, with CSS custom properties for brand-specific tokens.
-
-**Tailwind**: Use for margins, padding, flex/grid, font sizes, borders, etc.
-
-**CSS custom properties** (defined in `webapp/src/index.css :root`): Use for colors, radii, fonts, and animations. Reference them with Tailwind's arbitrary value syntax or in custom CSS.
-
-Brand color tokens:
-- `--gz-green`: Primary brand green (#bfd22b)
-- `--gz-green-dim`: Subtle green background
-- `--gz-green-muted`: Darker green for secondary elements
-- `--bg-root`, `--bg-primary`, `--bg-card`, `--bg-elevated`: Background layers
-- `--text-primary`, `--text-secondary`, `--text-tertiary`: Text hierarchy
-- `--border`, `--border-subtle`, `--border-focus`: Border styles
-
-## Imports
-
-### Import Order
-
-Group imports in this order, separated by blank lines:
-
-1. External packages (`react`, `aws-cdk-lib`, etc.)
-2. Internal modules (`../shared/rbac`, `./lib/api`, etc.)
-
-### Type-Only Imports
-
-Use `import type` for imports used only as types:
-
-```typescript
-import type { APIGatewayProxyEventV2 } from 'aws-lambda';
-import type { AppUser, AppRole } from '../shared/types';
-```
-
-This helps bundlers tree-shake and makes intent clear.
-
-## Environment Detection
-
-### Frontend
-
-Derive the current environment from the hostname:
-
-```typescript
-const hostname = window.location.hostname;
-// localhost -> dev
-// *-dev.goalzeroapp.com -> dev
-// *-test.goalzeroapp.com -> test
-// *.goalzeroapp.com (no env suffix) -> prod
-```
-
-The `VITE_API_URL` is baked in at build time, so each environment's build points to the correct API.
-
-### Backend (Lambda)
-
-Use the `STAGE` environment variable set by CDK:
-
-```typescript
-const stage = process.env.STAGE || 'dev';
-```
+`{{APP_NAME}}`, `{{APP_NAME_PASCAL}}`, `{{APP_DISPLAY_NAME}}`,
+`{{SEED_ADMIN_EMAIL}}` are substituted by `pnpm scaffold`. They live only in
+`apps/_template*/`; finding one in a scaffolded app means scaffolding didn't
+finish.

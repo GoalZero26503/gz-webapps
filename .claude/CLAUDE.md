@@ -1,4 +1,4 @@
-# {{APP_DISPLAY_NAME}}
+# gz-webapps — internal webapp monorepo
 
 @.agents/docs/structure.md
 @.agents/docs/auth.md
@@ -9,32 +9,51 @@
 
 ## Overview
 
-This is a Goal Zero internal webapp built from the [gz-webapp-template](https://github.com/GoalZero26503/gz-webapp-template). It uses React + Vite + Tailwind for the frontend, TypeScript Lambda functions for the API, and AWS CDK for infrastructure.
+This monorepo holds every internal Goal Zero / BioLite webapp, all built on one
+stack: Fastify (SSR via Eta + HTMX + Lit) in a Lambda container behind
+CloudFront, Aurora DSQL via Drizzle, AWS CDK. Full rationale: `docs/charter.md`.
+Apps live in `apps/<app-name>/`; `apps/_template/` is the canonical skeleton.
 
-## Project Structure
+## Who you are talking to
 
-- `webapp/` -- React SPA (Vite + TypeScript + Tailwind)
-- `lambda/` -- API Lambda handlers (TypeScript, bundled by CDK)
-- `cdk/` -- AWS CDK infrastructure (TypeScript)
-- `docs/` -- Human-readable documentation
-- `.agents/docs/` -- Agent reference documentation
+The person you're helping may be **non-technical** — a customer-service lead,
+an ops manager, a lab tech building their first app (charter §4.7). Calibrate:
+
+- Coach git mechanics in plain English with concrete commands: branch, commit,
+  push, open a PR. Never assume they know what a merge conflict is.
+- Direct pushes to `main` are blocked by branch protection. That is not an
+  error to work around — work on a branch named `<gh-username>/<short-description>`
+  and open a PR.
+- When CI fails, read the log, explain the failure in plain English, and
+  propose the fix. Never suggest bypassing CI, branch protection, or review.
+- PR descriptions: what changed, why, how to test, any infrastructure impact.
+  Tag `@GoalZero26503/webapp-gatekeepers` for review.
+- AWS write operations (`cdk deploy`, `aws ... put/create/delete`) are **not
+  for local machines** — deployment happens exclusively through CI on merge to
+  `main`. If something seems to need a local deploy, explain why the right
+  move is a PR. `pnpm diff` / `pnpm synth` (read-only previews) are fine.
 
 ## Available Commands
 
 | Command | Description |
 |---------|-------------|
-| `/gz:webapp:setup` | Interactive setup wizard (run once after cloning template) |
-| `/gz:webapp:deploy` | Deploy to an AWS environment |
-| `/gz:webapp:scaffold` | Scaffold new pages, API routes, or DynamoDB tables |
-| `/gz:webapp:status` | Show project config and deployment status |
+| `/gz:webapp:new-app` | Scaffold a new app — conversational stack choice, then `pnpm scaffold` |
+| `/gz:webapp:scaffold` | Add a page, fragment endpoint, Lit component, or table to an existing app |
+| `/gz:webapp:status` | Show an app's config, placeholder status, and deployment info |
 
 ## Key Rules
 
-1. Lambda handlers return responses via `json()` helper from `lambda/shared/rbac.ts`. Never throw for HTTP errors.
-2. New pages go in `webapp/src/pages/` and must be added to the Routes in `App.tsx`.
-3. New API routes need: Lambda handler in `lambda/`, CDK route in `cdk/lib/app-stack.ts`, and client method in `webapp/src/lib/api.ts`.
-4. DynamoDB table names use the `appTable()` helper from `lambda/shared/dynamo.ts`.
-5. Secrets go in SSM Parameter Store at `/gzweb/{{APP_NAME}}/{stage}/{param}`. Never hardcode secrets.
-6. CSS uses Tailwind classes for layout/spacing and CSS custom properties (in index.css) for brand colors.
-7. Keep `.agents/docs/` and `docs/` up to date when making structural changes.
-8. **All AWS resources MUST use the `gzweb-` namespace prefix** (e.g., `gzweb-{stage}-{{APP_NAME}}-webapp`). All SSM parameters MUST use the `/gzweb/{{APP_NAME}}/{stage}/*` prefix. This namespace is how IAM scopes developer access; any resource without the prefix will be inaccessible to webapp developers. See `.agents/docs/aws-namespace.md`.
+1. Stay inside the app you're working on (`apps/<name>/`). Cross-app or
+   `packages/` changes are separate PRs requiring those owners' review.
+2. New pages are Eta views + a route in `src/routes/pages.ts`, guarded by
+   `requireAuth`/`requirePermission`. Interactivity is HTMX-first: endpoints
+   take form bodies and return HTML partials. Lit components only for
+   genuinely stateful widgets (see `.agents/docs/api.md` for the decision rule).
+3. Data goes through Drizzle (`src/db/schema.ts`); after schema changes run
+   `pnpm db:generate` and commit the migration.
+4. Secrets live in SSM at `/gzweb/{app}/{stage}/*`. Never hardcode or commit.
+5. All AWS resources use the `gzweb-` prefix and namespace tags — IAM scoping
+   depends on it (`.agents/docs/aws-namespace.md`).
+6. Don't edit `apps/_template/` while building an app — template improvements
+   are their own PR, reviewed as template changes.
+7. Keep `.agents/docs/` and `docs/` current when you change how things work.

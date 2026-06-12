@@ -1,0 +1,69 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  # Determine which apps this PR touches. A change under packages/ or to root
+  # config re-checks every app, since shared code affects all of them.
+  detect:
+    runs-on: ubuntu-latest
+    outputs:
+      apps: ${{ steps.changed.outputs.apps }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - id: changed
+        run: |
+          CHANGED=$(git diff --name-only "origin/${{ github.base_ref }}...HEAD")
+          if echo "$CHANGED" | grep -qvE '^apps/'; then
+            # root or packages/ change → check all apps
+            APPS=$(ls -d apps/*/ | cut -d/ -f2)
+          else
+            APPS=$(echo "$CHANGED" | grep -oE '^apps/[^/]+' | cut -d/ -f2 | sort -u)
+          fi
+          # _template-spa is frontend-only (no typecheck target yet)
+          APPS=$(echo "$APPS" | grep -v '^_template-spa$' || true)
+          echo "apps=$(echo "$APPS" | jq -R . | jq -cs .)" >> "$GITHUB_OUTPUT"
+
+  check:
+    needs: detect
+    if: needs.detect.outputs.apps != '[]'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        app: ${{ fromJSON(needs.detect.outputs.apps) }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Typecheck
+        run: pnpm --filter "./apps/${{ matrix.app }}" typecheck
+
+      - name: Lint
+        run: pnpm --filter "./apps/${{ matrix.app }}" --if-present lint
+
+      - name: Test
+        run: pnpm --filter "./apps/${{ matrix.app }}" --if-present test
+
+      - name: Build
+        run: pnpm --filter "./apps/${{ matrix.app }}" --if-present build
+
+      - name: CDK synth
+        run: pnpm --filter "./apps/${{ matrix.app }}" --if-present synth
+
+      # TODO(charter §4.4): post `cdk diff` as a PR comment. Needs a read-only
+      # OIDC role per app; wire up alongside the deploy roles (charter §7,
+      # per-app OIDC scoping).

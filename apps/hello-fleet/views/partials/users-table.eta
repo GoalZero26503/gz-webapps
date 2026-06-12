@@ -1,0 +1,17 @@
+<table id="users-table" class="data-table">
+  <thead>
+    <tr>
+      <th>Email</th>
+      <th>Name</th>
+      <th>Role</th>
+      <th>Status</th>
+      <th>Last login</th>
+      <th></th>
+    </tr>
+  </thead>
+  <tbody>
+    <% it.users.forEach((row) => { %>
+      <%~ include('./user-row', { user: it.user, row }) %>
+    <% }) %>
+  </tbody>
+</table>

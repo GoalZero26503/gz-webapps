@@ -1,0 +1,18 @@
+# Docker build context = monorepo root (see apps/*/Dockerfile). CDK image
+# assets honor this file when staging the context — without the cdk.out
+# exclusion, synth recursively copies cdk.out into itself.
+**/node_modules
+**/cdk.out
+**/dist
+**/.git
+.git
+**/.env
+**/.env.*
+**/public/assets
+**/public/vendor
+**/.local
+*.log
+.github
+docs
+.agents
+.claude

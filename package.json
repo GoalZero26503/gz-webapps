@@ -1,0 +1,15 @@
+{
+  "name": "gz-webapps",
+  "private": true,
+  "description": "Monorepo of internal Goal Zero / BioLite webapps. See docs/charter.md.",
+  "packageManager": "pnpm@10.4.1",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "scaffold": "node scripts/scaffold.mjs",
+    "lint": "pnpm -r --if-present lint",
+    "typecheck": "pnpm -r --if-present typecheck",
+    "test": "pnpm -r --if-present test"
+  }
+}

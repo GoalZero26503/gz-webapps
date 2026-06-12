@@ -17,11 +17,15 @@ GZ AWS accounts (especially `gz-prod`) contain resources for IoT backends, mobil
 | Resource | Pattern | Example |
 |----------|---------|---------|
 | CloudFormation Stack | `GzWeb-{AppPascal}-{stage}` | `GzWeb-FleetTracker-dev` |
-| DynamoDB Table | `gzweb-{stage}-{app}-{Table}` | `gzweb-dev-fleet-tracker-User` |
-| S3 Bucket | `gzweb-{stage}-{app}-webapp` | `gzweb-dev-fleet-tracker-webapp` |
-| Lambda Function | `gzweb-{stage}-{app}-{handler}` | `gzweb-dev-fleet-tracker-auth` |
+| Lambda Function (app container) | `gzweb-{stage}-{app}-app` | `gzweb-dev-fleet-tracker-app` |
+| Aurora DSQL Cluster | Name tag `gzweb-{stage}-{app}` | `gzweb-dev-fleet-tracker` |
 | SSM Parameters | `/gzweb/{app}/{stage}/*` | `/gzweb/fleet-tracker/dev/jwt_secret` |
-| API Gateway | `gzweb-{stage}-{app}-api` | `gzweb-dev-fleet-tracker-api` |
+| Deploy IAM Role (OIDC) | `gzweb-deploy-{app}` | `gzweb-deploy-fleet-tracker` |
+| S3 Bucket (SPA escape hatch only) | `gzweb-{stage}-{app}-webapp` | `gzweb-dev-fleet-tracker-webapp` |
+| DynamoDB Table (KV escape hatch only) | `gzweb-{stage}-{app}-{Table}` | `gzweb-dev-fleet-tracker-Events` |
+
+DSQL cluster identifiers are AWS-generated, so the namespace rides on the
+`Name` tag and the `gz:*` tags rather than the identifier itself.
 
 Where:
 - `{app}` = kebab-case app slug (e.g., `fleet-tracker`)
@@ -42,9 +46,15 @@ The CDK stack applies these tags automatically via `cdk.Tags.of(this).add()`, wh
 
 ## IAM Access Model
 
+> **Deploy-model note (unified template):** app deployment is CI-only via
+> per-app OIDC roles (`gzweb-deploy-{app}`) — see `deploy.md`. The
+> `GzWebappDevelopers` group below remains for *gatekeeper* human access
+> (debugging, SSM parameter setup, stack inspection), not for routine deploys,
+> and is never granted to app creators.
+
 ### Group: GzWebappDevelopers
 
-Webapp developers are added to this IAM group. The group has one managed policy (`GzWebappDeployAccess`) that grants:
+Members of this IAM group get one managed policy (`GzWebappDeployAccess`) that grants:
 
 | What | Scope | Notes |
 |------|-------|-------|
@@ -85,8 +95,7 @@ When creating or modifying AWS resources for a webapp:
 1. **Always use the `gzweb-` prefix** for resource names
 2. **Always use `/gzweb/` prefix** for SSM parameter paths
 3. **Never create resources without the namespace prefix**, even temporarily
-4. **Use `appTable()` from `lambda/shared/dynamo.ts`** for DynamoDB table names (it applies the prefix automatically)
-5. **Follow the CDK stack's tag propagation pattern** by including `cdk.Tags.of(this).add()` for any new stack constructs
+4. **Follow the CDK stack's tag propagation pattern** — `WebappStack` applies `gz:namespace`/`gz:app`/`gz:stage` via `cdk.Tags.of(this).add()`, which propagates to new constructs added inside the stack
 
 ## Admin Setup
 

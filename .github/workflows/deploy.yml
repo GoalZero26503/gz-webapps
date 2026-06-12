@@ -1,0 +1,95 @@
+name: Deploy
+
+# Deployment happens EXCLUSIVELY here (charter §4.5): merge to main deploys
+# the changed apps to prod via per-app OIDC-federated roles. No AWS
+# credentials exist on developer machines or in repo secrets.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      app:
+        description: 'App to deploy (directory name under apps/)'
+        required: true
+      stage:
+        description: 'Target stage'
+        required: true
+        default: 'dev'
+        type: choice
+        options: [dev, prod]
+
+jobs:
+  detect:
+    runs-on: ubuntu-latest
+    outputs:
+      apps: ${{ steps.changed.outputs.apps }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - id: changed
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            APPS="${{ inputs.app }}"
+          else
+            APPS=$(git diff --name-only "${{ github.event.before }}" "${{ github.sha }}" \
+              | grep -oE '^apps/[^/]+' | cut -d/ -f2 | sort -u || true)
+          fi
+          # underscore-prefixed dirs are skeletons, never deployed
+          APPS=$(echo "$APPS" | grep -v '^_' || true)
+          echo "apps=$(echo "$APPS" | grep -v '^$' | jq -R . | jq -cs .)" >> "$GITHUB_OUTPUT"
+
+  deploy:
+    needs: detect
+    if: needs.detect.outputs.apps != '[]'
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    strategy:
+      fail-fast: false
+      max-parallel: 3
+      matrix:
+        app: ${{ fromJSON(needs.detect.outputs.apps) }}
+    # The GitHub Environment carries the per-app deploy role ARN, and each AWS
+    # role's trust policy is keyed on this environment claim — the timesheet
+    # role can only be assumed by the timesheet job on main (charter §4.6).
+    environment: ${{ matrix.app }}
+    env:
+      # Bootstrap posture: merge-to-main deploys DEV until prod accounts,
+      # domains, and prod deploy roles are wired (validation round, charter
+      # §8.2). Flip to 'prod' when the fleet goes live.
+      STAGE: ${{ inputs.stage || 'dev' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.DEPLOY_ROLE_ARN }}
+          aws-region: us-east-1
+
+      - name: CDK deploy
+        working-directory: apps/${{ matrix.app }}
+        run: pnpm exec cdk deploy --require-approval never -c stage="$STAGE"
+
+      - name: Apply schema migrations
+        working-directory: apps/${{ matrix.app }}
+        run: |
+          DSQL_ENDPOINT=$(aws cloudformation describe-stacks \
+            --stack-name "$(pnpm exec cdk ls -c stage="$STAGE" 2>/dev/null | head -1)" \
+            --query "Stacks[0].Outputs[?OutputKey=='DsqlEndpoint'].OutputValue" --output text)
+          export DSQL_ENDPOINT
+          DSQL_TOKEN=$(aws dsql generate-db-connect-admin-auth-token --hostname "$DSQL_ENDPOINT")
+          export DSQL_TOKEN
+          pnpm db:push

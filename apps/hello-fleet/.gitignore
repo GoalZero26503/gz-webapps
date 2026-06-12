@@ -1,0 +1,8 @@
+# Generated client assets (build:client)
+public/assets/
+public/vendor/
+
+# Local env
+.env
+
+# Drizzle migration journal is committed; snapshots are too — nothing ignored there
