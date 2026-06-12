@@ -1,0 +1,25 @@
+<% layout('layout') %>
+<h1>Dashboard</h1>
+<p class="text-secondary">
+  This is the template's starting page. Replace it with your app's real content.
+</p>
+
+<div class="card-grid">
+  <div class="card">
+    <h2>Server-rendered</h2>
+    <p>This page is HTML rendered by Fastify + Eta. No client framework, no hydration.</p>
+  </div>
+
+  <div class="card">
+    <h2>HTMX fragment demo</h2>
+    <p>The button below swaps in a fragment fetched from the server.</p>
+    <button class="btn" hx-get="/api/me" hx-target="#me-demo" hx-swap="innerHTML">Who am I?</button>
+    <pre id="me-demo" class="demo-output"></pre>
+  </div>
+
+  <div class="card">
+    <h2>Lit component demo</h2>
+    <p>Genuinely stateful UI lives in Lit web components.</p>
+    <gz-sparkline points="3,7,4,9,6,12,8,14,11,16" width="220" height="48"></gz-sparkline>
+  </div>
+</div>
