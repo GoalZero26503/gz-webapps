@@ -1,1 +1,6 @@
-* @GoalZero26503/software-team
+# Gatekeepers (charter §4.6): every change requires this team's approval.
+* @GoalZero26503/webapp-gatekeepers
+
+# Per-app entries are appended by `pnpm scaffold` so PRs touching an app also
+# require that app's owner. Format:
+# apps/<app-name>/ @<creator-handle> @GoalZero26503/webapp-gatekeepers

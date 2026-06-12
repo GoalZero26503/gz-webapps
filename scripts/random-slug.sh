@@ -2,7 +2,7 @@
 # ──────────────────────────────────────────────────────────────────
 # random-slug.sh
 # Generate a playful 3-word hyphenated slug for use as a default
-# subdomain / app name during /gz:webapp:setup.
+# subdomain / app name during /gz:webapp:new-app.
 #
 # Format: {adjective}-{adjective}-{noun}
 # Example output: "swimming-ancient-shrubbery"
