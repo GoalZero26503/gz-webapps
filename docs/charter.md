@@ -611,11 +611,11 @@ These are not blockers but should be resolved before the template repo is finali
   locally. Plan is to run Fastify directly (`fastify start`) for local dev — the
   LWA layer is only needed when packaged for Lambda. To be documented in the
   template README.
-- **Default-stack PoC.** Confirm Eta + HTMX + Lit + Fastify + Google OAuth redirect
-  flow + Aurora DSQL work cleanly together before committing to this stack as the
-  default. Action: branch the template, build a small CRUD app on the default
-  stack, evaluate DX. Compare side by side with an equivalent React + Vite build
-  to confirm the bundle-size and DX claims.
+- ~~**Default-stack PoC.**~~ **Superseded 2026-06-12** by the risk-ordered
+  validation round in §8.2: deploy `_template` to gz-dev, then build the real
+  ops dashboard as the default-stack stress test (no throwaway CRUD app), then
+  rewire the SPA escape hatch. Local validation already done on the template
+  itself (typecheck/build/browser smoke test; three bugs found and fixed).
 - **Migration path for the existing `gz-webapp-template` apps.** None deployed
   yet (template is brand new and still placeholder-named). Recommend: hold off
   scaffolding new apps until unified template ships.
@@ -630,10 +630,41 @@ These are not blockers but should be resolved before the template repo is finali
    Lit handles cases that the form would have railroaded to SPA (his knowledge
    base chat and WebSerial demo as examples). §3.2 and §3.3 now reflect
    default-SSR with a narrow, conversationally-chosen SPA escape hatch.
-2. PoC the default stack: branch the template repo, build a small CRUD app with
-   Fastify + Eta + HTMX + Lit + Google OAuth + Aurora DSQL + Drizzle. Validate
-   DX, auth redirect flow, and HTMX integration. Compare side by side with an
-   equivalent React + Vite build to confirm bundle-size and DX claims.
+2. **Validation round — one prototype per risk, not per feature** (plan
+   updated 2026-06-12; supersedes the original "small CRUD PoC"). The
+   this-or-that forks in the template (SSR vs SPA frontend, DSQL vs DynamoDB
+   data) can't share one prototype, so the round is a small portfolio,
+   risk-ordered. Validation apps live in `apps/` like any other app and double
+   as the permanent reference apps the monorepo model depends on.
+   1. **Deploy `apps/_template` to gz-dev as-is.** Retires the biggest
+      unknowns in one shot: Docker build in CI, OIDC deploy-role wiring,
+      image size and real cold starts, DSQL provisioning + IAM-token auth +
+      `drizzle-kit push` compatibility, OAuth on a real CloudFront domain,
+      and measured idle cost. Blocked on the per-app gatekeeper setup
+      (deploy role, SSM params, Google OAuth client — `docs/setup.md`).
+   2. **`apps/ops-dashboard` — the real ops dashboard, built on the default
+      stack.** Not a throwaway: a production app that doubles as the
+      default-stack stress test and the kitchen-sink exemplar. Must
+      deliberately exercise the "people assume this needs an SPA" list:
+      SSE-driven live tiles (validates LWA response streaming
+      (`AWS_LWA_INVOKE_MODE=RESPONSE_STREAM`) through CloudFront without
+      buffering — asserted in §3.2.1 but never run), an interactive Lit
+      chart, drag-and-drop within a panel, S3-presigned file upload, and an
+      EventBridge background job feeding it data (§3.5 escape hatches). If
+      this app fights HTMX + Lit anywhere, we learn it here, not in the
+      fleet's first creator-built app.
+   3. **Rewire `apps/_template-spa` onto the unified backbone** so the SPA
+      escape hatch is real: S3 bundle behind CloudFront `/*`, `/api/*` →
+      Function URL, cookie-session auth from the SPA (see its README for
+      the known gaps).
+   4. **Deferred:** the DynamoDB fork (lowest novelty — DynamoDB is run in
+      production here daily; wait for the first genuinely KV-shaped app)
+      and the side-by-side React bundle-size comparison (the deployed
+      template already measures the default stack's footprint).
+   5. **Modularize as the output of this round, not the input.** After
+      (ii) and (iii) exist, the real duplication defines what
+      `packages/auth` and `packages/infra` (`WebappStack`) should be —
+      extract then, per the extract-on-second-use rule.
 3. Resolve the remaining open questions in §7 (IAM namespace, Django lane,
    ruleset scope, gatekeeper team, deploy-notification channel, local dev).
 4. ~~Restructure the repo into the monorepo shape from §4.2.~~ **Done

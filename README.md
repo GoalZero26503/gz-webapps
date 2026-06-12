@@ -89,10 +89,11 @@ Full rationale, principles, and rejected alternatives are in
   stack), with `pnpm scaffold`, path-filtered CI, and the OIDC deploy workflow
   in place. `apps/_template-spa/` holds the React escape-hatch frontend,
   pending rewiring to the unified backbone.
-- Typecheck, build, and a local server smoke test pass; **not yet deployed**.
-- Next step: the end-to-end PoC — deploy `_template` to dev (Docker build,
-  cold start, OAuth redirect, DSQL migration) and validate the charter's
-  cold-start and cost claims (charter §8.2).
+- Typecheck, build, and a local browser smoke test pass; **not yet deployed**.
+- Next: the validation round (charter §8.2) — deploy `_template` to gz-dev
+  as-is, then build the **real ops dashboard** on the default stack as the
+  stress test / kitchen-sink exemplar, then rewire the SPA escape hatch.
+  Shared `packages/` get extracted after that round, not before.
 
 ## Repo layout
 
