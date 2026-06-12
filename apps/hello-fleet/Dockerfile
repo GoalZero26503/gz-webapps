@@ -3,7 +3,12 @@
 # selects which app to build, so scaffolded copies of this file work unchanged.
 ARG APP_DIR=apps/_template
 
-FROM public.ecr.aws/docker/library/node:22-slim AS build
+# Build stage runs on the builder's native arch (no QEMU needed in CI); the
+# runtime stage below is COPY-only, so BuildKit assembles the arm64 image
+# without emulation. CAVEAT: this works because all prod deps are pure JS —
+# if an app ever adds a native module, its node_modules become arch-specific
+# and this must switch to a native arm64 runner or QEMU.
+FROM --platform=$BUILDPLATFORM public.ecr.aws/docker/library/node:22-slim AS build
 ARG APP_DIR
 RUN corepack enable
 WORKDIR /repo
