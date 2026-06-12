@@ -8,7 +8,7 @@
   hx-target="#users-section"
   hx-swap="outerHTML"
 >
-  <input type="email" name="email" placeholder="colleague@goalzero.com" required />
+  <input type="email" name="email" placeholder="colleague@bioliteenergy.com" required />
   <select name="role">
     <option value="user" selected>user</option>
   </select>

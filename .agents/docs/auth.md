@@ -19,7 +19,11 @@ GET /api/me                    JSON: current user (email, name, role, permission
 Two access gates in `completeLogin()` (`src/auth/google.ts`):
 
 1. **Domain**: Google `hd` claim must be in `ALLOWED_DOMAINS`
-   (default `bioliteenergy.com,goalzero.com`).
+   (default `bioliteenergy.com`). The Google Workspace tenant is
+   `bioliteenergy.com` only — `@goalzero.com` addresses are aliases, can't
+   sign in to Google services, and never appear in the `hd` claim or profile
+   email. All app user identities (allowlist rows, seed admin, invites) are
+   therefore `@bioliteenergy.com` addresses.
 2. **Allowlist**: a row in the `users` table with `status = 'active'`. No row
    → "not invited". Exception: `SEED_ADMIN_EMAIL` is auto-created as admin on
    first login so a fresh deploy is never locked out.
