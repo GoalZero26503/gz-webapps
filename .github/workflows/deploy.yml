@@ -57,7 +57,10 @@ jobs:
     # role can only be assumed by the timesheet job on main (charter §4.6).
     environment: ${{ matrix.app }}
     env:
-      STAGE: ${{ inputs.stage || 'prod' }}
+      # Bootstrap posture: merge-to-main deploys DEV until prod accounts,
+      # domains, and prod deploy roles are wired (validation round, charter
+      # §8.2). Flip to 'prod' when the fleet goes live.
+      STAGE: ${{ inputs.stage || 'dev' }}
     steps:
       - uses: actions/checkout@v4
 

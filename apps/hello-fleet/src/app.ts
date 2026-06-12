@@ -1,0 +1,49 @@
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import fastifyCookie from '@fastify/cookie';
+import fastifyFormbody from '@fastify/formbody';
+import fastifyStatic from '@fastify/static';
+import fastifyView from '@fastify/view';
+import { Eta } from 'eta';
+import Fastify, { type FastifyInstance } from 'fastify';
+import { authPlugin } from './auth/plugin.js';
+import { getConfig } from './config.js';
+import { authRoutes } from './routes/auth.js';
+import { pageRoutes } from './routes/pages.js';
+import { userRoutes } from './routes/users.js';
+
+const rootDir = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
+
+export function buildApp(): FastifyInstance {
+  const app = Fastify({
+    logger: { level: getConfig().isLocal ? 'debug' : 'info' },
+    trustProxy: true, // behind CloudFront + Lambda Web Adapter
+  });
+
+  app.register(fastifyCookie);
+  app.register(fastifyFormbody);
+  app.register(fastifyView, {
+    engine: { eta: new Eta() },
+    root: path.join(rootDir, 'views'),
+    viewExt: 'eta',
+    defaultContext: { appName: getConfig().appName, stage: getConfig().stage },
+  });
+  // no-cache + ETag: bundles aren't content-hashed, so clients must
+  // revalidate (cheap 304s) rather than serve stale JS after a deploy
+  app.register(fastifyStatic, {
+    root: path.join(rootDir, 'public'),
+    prefix: '/',
+    wildcard: false,
+    cacheControl: true,
+    maxAge: 0,
+  });
+
+  app.register(authPlugin);
+  app.register(authRoutes);
+  app.register(pageRoutes);
+  app.register(userRoutes);
+
+  app.get('/healthz', async () => ({ ok: true }));
+
+  return app;
+}
