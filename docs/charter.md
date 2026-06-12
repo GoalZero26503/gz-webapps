@@ -636,23 +636,36 @@ These are not blockers but should be resolved before the template repo is finali
    data) can't share one prototype, so the round is a small portfolio,
    risk-ordered. Validation apps live in `apps/` like any other app and double
    as the permanent reference apps the monorepo model depends on.
-   1. **Deploy `apps/_template` to gz-dev as-is.** Retires the biggest
-      unknowns in one shot: Docker build in CI, OIDC deploy-role wiring,
-      image size and real cold starts, DSQL provisioning + IAM-token auth +
-      `drizzle-kit push` compatibility, OAuth on a real CloudFront domain,
-      and measured idle cost. Blocked on the per-app gatekeeper setup
-      (deploy role, SSM params, Google OAuth client — `docs/setup.md`).
-   2. **`apps/ops-dashboard` — the real ops dashboard, built on the default
-      stack.** Not a throwaway: a production app that doubles as the
-      default-stack stress test and the kitchen-sink exemplar. Must
-      deliberately exercise the "people assume this needs an SPA" list:
-      SSE-driven live tiles (validates LWA response streaming
-      (`AWS_LWA_INVOKE_MODE=RESPONSE_STREAM`) through CloudFront without
-      buffering — asserted in §3.2.1 but never run), an interactive Lit
-      chart, drag-and-drop within a panel, S3-presigned file upload, and an
-      EventBridge background job feeding it data (§3.5 escape hatches). If
-      this app fights HTMX + Lit anywhere, we learn it here, not in the
-      fleet's first creator-built app.
+   1. **Deploy the template to gz-dev.** Mechanically: `pnpm scaffold
+      hello-fleet ...` and deploy *that* — deploy.yml deliberately skips
+      `_`-prefixed skeletons, and scaffolding first exercises the scaffold
+      path for real. Retires the biggest unknowns in one shot: Docker build
+      in CI, OIDC deploy-role wiring, image size and real cold starts, DSQL
+      provisioning + IAM-token auth + `drizzle-kit push` compatibility,
+      OAuth on a real CloudFront domain, and measured idle cost. Blocked on
+      the per-app gatekeeper setup (deploy role, SSM params, Google OAuth
+      client — `docs/setup.md`), which itself is blocked on the repo rename
+      to `gz-webapps` (OIDC trust policies are scoped to
+      `repo:GoalZero26503/gz-webapps`; roles wired under the old name won't
+      match).
+   2. **`apps/gzops` — the gzops portal rebuild, built on the default
+      stack.** (Merged 2026-06-12 with the 2601-gzops-v2 plan: this IS the
+      "real ops dashboard" — one app, not two. Screen spec and phased plan:
+      `~/Documents/gz/projects/2601-gzops-v2/ui-prototype/` and
+      `.agents/design/webapp-template-alignment.md` in that project.) Not a
+      throwaway: a production app that doubles as the default-stack stress
+      test and the kitchen-sink exemplar. It exercises the "people assume
+      this needs an SPA" list: SSE-driven live deploy tiles (validates LWA
+      response streaming (`AWS_LWA_INVOKE_MODE=RESPONSE_STREAM`) through
+      CloudFront without buffering — asserted in §3.2.1 but never run; wire
+      the deploy-progress tile end-to-end FIRST since a buffering failure
+      would force a polling redesign), Lit islands (program-editor preview),
+      presigned S3 transfers, and EventBridge-fed data (§3.5). One scope
+      note: gzops keeps **DynamoDB** per the §3.5 KV escape hatch — so this
+      app also validates the KV fork (un-deferring it), and **DSQL
+      validation rests on step (i) plus the first relational app.** If this
+      app fights HTMX + Lit anywhere, we learn it here, not in the fleet's
+      first creator-built app.
    3. **Rewire `apps/_template-spa` onto the unified backbone** so the SPA
       escape hatch is real: S3 bundle behind CloudFront `/*`, `/api/*` →
       Function URL, cookie-session auth from the SPA (see its README for
