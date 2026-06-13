@@ -12,8 +12,10 @@
 </head>
 <body>
   <% if (it.user && it.area) { %>
+  <input type="checkbox" id="navToggle" class="nav-toggle-cb" hidden />
   <header class="topnav">
-    <a class="brand" href="/">GZ<span class="cursor">Ops</span></a>
+    <label for="navToggle" class="nav-burger" aria-label="Open navigation"><i class="icon-menu"></i></label>
+    <a class="brand" href="/">gzops<span class="cursor">_</span></a>
     <% if (it.stage !== 'prod') { %><span class="badge badge-stage"><%= it.stage %></span><% } %>
     <nav class="area-tabs">
       <% it.areaTabs.forEach(function (t) { %>
@@ -46,13 +48,26 @@
         </div>
       </div>
     </details>
-    <div class="user-menu">
-      <span class="topbar-email"><%= it.user.email %></span>
-      <form method="post" action="/auth/logout"><button class="btn btn-ghost sm" type="submit"><i class="icon-log-out"></i> Sign out</button></form>
-    </div>
+    <details class="user-menu">
+      <summary class="user-btn" title="Account"><i class="icon-circle-user"></i></summary>
+      <div class="user-drop">
+        <div class="ud-id">
+          <div class="ud-name"><%= it.user.name || it.user.email %></div>
+          <div class="ud-email"><%= it.user.email %></div>
+          <span class="ud-role"><%= it.user.role %></span>
+        </div>
+        <form method="post" action="/auth/logout"><button class="btn btn-ghost sm block" type="submit"><i class="icon-log-out"></i> Sign out</button></form>
+      </div>
+    </details>
   </header>
   <div class="shell">
+    <label for="navToggle" class="nav-scrim"></label>
     <aside class="sidebar">
+      <nav class="drawer-areas">
+        <% it.areaTabs.forEach(function (t) { %>
+          <a class="darea <%= t.key === it.area ? 'active' : '' %>" href="<%= t.href %>"><%= t.label %></a>
+        <% }) %>
+      </nav>
       <% it.sidebar.forEach(function (group) { %>
         <% if (group.heading) { %><div class="nav-section"><%= group.heading %></div><% } %>
         <% group.items.forEach(function (item) { %>
