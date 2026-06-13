@@ -7,9 +7,11 @@ this app.
 
 ## App facts
 
-- **Stack**: default SSR (Fastify + Eta + HTMX + Lit). Why this stack was
-  chosen for this app: <!-- scaffold fills this in from the conversation -->
-- **Owner**: <!-- @github-handle -->
+- **Stack**: default SSR (Fastify + Eta + HTMX + Lit). gzops is a **BFF**, not a
+  DSQL app: it reads the gzops-platform API server-side (`src/platform/`, SigV4)
+  and owns only a little KV state in DynamoDB (`src/store/`). No Aurora DSQL /
+  Drizzle here — that was removed from the template skeleton for this app.
+- **Owner**: astout (@astout) · `@GoalZero26503/webapp-gatekeepers` reviews.
 - **Stages**: dev, prod. Deployed only via CI on merge to `main`.
 
 ## Working in this app
@@ -21,7 +23,13 @@ this app.
 - New interaction: prefer an HTMX endpoint returning a partial from
   `views/partials/`. Reach for a Lit component only when the widget has real
   client-side state.
-- Schema change: edit `src/db/schema.ts`, run `pnpm db:generate`, commit the
-  migration under `drizzle/`.
+- Platform data (projects, deployments, environments, …) is **read** through
+  `src/platform/client.ts` — never persisted here, never called from the
+  browser. App-owned state (programs, users, requests, notifications, access
+  log) lives in `src/store/`; add a table by extending `store/client.ts`
+  `TABLE_KEYS` and the CDK `TABLES` map.
+- Local dev runs `STORE_MODE=memory` + `PLATFORM_MODE=fake` (seeded fixtures,
+  no AWS). `pnpm dev` then sign in is gated on a Google OAuth client (human
+  step); the screens render against fake data without it.
 - Never run `cdk deploy` or AWS write operations locally — deploys happen
-  exclusively through CI. `pnpm diff` is fine for previewing.
+  exclusively through CI. `pnpm diff` / `pnpm synth` are fine for previewing.
