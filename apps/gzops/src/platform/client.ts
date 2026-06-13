@@ -23,6 +23,8 @@ import {
   type Env,
   type EnvProjectState,
   type Project,
+  type Rail,
+  type RailCell,
 } from './types.js';
 
 export interface CreateDeploymentInput {
@@ -47,30 +49,56 @@ class PlatformClient {
   }
 
   // ── Projects ──────────────────────────────────────────────
-  async listProjects(): Promise<Project[]> {
+  async listProjects(opts: { withState?: boolean } = {}): Promise<Project[]> {
     if (this.isFake) return structuredClone(FIXTURE_PROJECTS);
-    return (await this.getJson<{ projects?: unknown[] }>('/projects')).projects?.map(normalizeProject) ?? [];
+    const projects = (await this.getJson<{ projects?: unknown[] }>('/projects')).projects?.map(normalizeProject) ?? [];
+    if (!opts.withState) return projects;
+    return Promise.all(projects.map((p) => this.enrich(p)));
+  }
+
+  /** Populate rail / channels / cohorts from the project's live env-state. */
+  private async enrich(p: Project): Promise<Project> {
+    if (this.isFake) return p;
+    const items = await this.envStates(p.id);
+    return items.length ? { ...p, ...buildState(items, p.type) } : p;
+  }
+
+  private async envStates(projectId: string): Promise<EnvStateItem[]> {
+    const data = await this
+      .getJson<{ environments?: EnvStateItem[] }>(`/environments?project_id=${encodeURIComponent(projectId)}`)
+      .catch(() => ({ environments: [] as EnvStateItem[] }));
+    return data.environments ?? [];
   }
 
   async getProject(id: string): Promise<Project | null> {
     if (this.isFake) return structuredClone(FIXTURE_PROJECTS.find((p) => p.id === id)) ?? null;
     const raw = await this.getJson<unknown>(`/projects/${encodeURIComponent(id)}`).catch(() => null);
-    return raw ? normalizeProject(raw) : null;
+    return raw ? this.enrich(normalizeProject(raw)) : null;
   }
 
   // ── Deployments ───────────────────────────────────────────
-  async listDeployments(opts: { projectId?: string; limit?: number } = {}): Promise<Deployment[]> {
+  async listDeployments(opts: { projectId: string; limit?: number }): Promise<Deployment[]> {
     if (this.isFake) {
-      let list = this.fakeStore().map((d) => this.advance(d));
-      if (opts.projectId) list = list.filter((d) => d.projectId === opts.projectId);
+      const list = this.fakeStore().map((d) => this.advance(d)).filter((d) => d.projectId === opts.projectId);
       list.sort((a, b) => (a.at < b.at ? 1 : -1));
       return opts.limit ? list.slice(0, opts.limit) : list;
     }
-    const qs = new URLSearchParams();
-    if (opts.projectId) qs.set('project_id', opts.projectId);
-    qs.set('limit', String(opts.limit ?? 50));
+    // The platform requires project_id (a global list 400s). Callers needing a
+    // cross-project view use listDeploymentsAcross().
+    const qs = new URLSearchParams({ project_id: opts.projectId, limit: String(opts.limit ?? 50) });
     const res = await this.getJson<{ deployments?: unknown[] }>(`/deployments?${qs}`);
     return res.deployments?.map(normalizeDeployment) ?? [];
+  }
+
+  /** Merge recent deployments across several projects (per-project fetch + merge). */
+  async listDeploymentsAcross(projectIds: string[], limit = 50): Promise<Deployment[]> {
+    if (this.isFake) {
+      const ids = new Set(projectIds);
+      return this.fakeStore().map((d) => this.advance(d)).filter((d) => ids.has(d.projectId))
+        .sort((a, b) => (a.at < b.at ? 1 : -1)).slice(0, limit);
+    }
+    const lists = await Promise.all(projectIds.map((pid) => this.listDeployments({ projectId: pid }).catch(() => [] as Deployment[])));
+    return lists.flat().sort((a, b) => (a.at < b.at ? 1 : -1)).slice(0, limit);
   }
 
   async getDeployment(id: string): Promise<Deployment | null> {
@@ -94,7 +122,7 @@ class PlatformClient {
 
   // ── Environments lens ─────────────────────────────────────
   async listEnvironment(env: Env): Promise<EnvProjectState[]> {
-    const projects = await this.listProjects();
+    const projects = await this.listProjects({ withState: true });
     return projects.map((p) => ({
       projectId: p.id,
       projectName: p.name,
@@ -177,7 +205,9 @@ class PlatformClient {
       body: signed.body,
     });
     if (!res.ok) throw new Error(`Platform API ${method} ${path} → ${res.status}`);
-    return (await res.json()) as T;
+    const json = (await res.json()) as Record<string, unknown>;
+    // Platform wraps every payload in {success, data}; unwrap to the inner object.
+    return (json && typeof json === 'object' && 'data' in json ? json.data : json) as T;
   }
 }
 
@@ -213,20 +243,91 @@ export function artifactsFor(p: Project): Artifact[] {
 
 // ── Live response normalizers (platform snake_case → view types) ──
 
+interface EnvStateItem {
+  environment: string;
+  deploy_pipeline?: string;
+  current_version?: string;
+  current_build_number?: number;
+  deployed_at?: string;
+  status?: string;
+  cohorts?: { cohort: string; version?: string; build?: string; at?: string }[];
+}
+
+function normalizeType(t: unknown): Project['type'] {
+  const s = String(t ?? '');
+  if (s === 'firmware-kit' || s === 'firmware-node') return s;
+  if (s === 'mobile' || s === 'mobile-react-native') return 'mobile';
+  return 'cloud'; // backend + anything else
+}
+
+function relAge(iso?: string): string | undefined {
+  if (!iso) return undefined;
+  const ms = Date.now() - new Date(iso).getTime();
+  if (Number.isNaN(ms) || ms < 0) return undefined;
+  const m = Math.floor(ms / 60000);
+  if (m < 60) return `${m}m`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `${h}h`;
+  const d = Math.floor(h / 24);
+  return d < 30 ? `${d}d` : `${Math.floor(d / 30)}mo`;
+}
+
+function railState(status?: string): 'live' | 'deploying' | 'failed' {
+  if (status === 'failed') return 'failed';
+  if (status === 'in_progress' || status === 'deploying' || status === 'pending') return 'deploying';
+  return 'live';
+}
+
+const channelLabel = (p?: string): string =>
+  (p ?? 'default').replace(/-manifests?$/i, '').replace(/[-_]/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+const storeLabel = (p?: string): string =>
+  p === 'play' ? 'Play' : p === 'app-store' || p === 'testflight' ? 'TestFlight' : channelLabel(p);
+
+/** Compose rail / channels / cohorts from a project's live env-state rows. */
+function buildState(items: EnvStateItem[], type: Project['type']): Partial<Project> {
+  const cellOf = (it: EnvStateItem): RailCell => ({
+    v: String(it.current_version ?? '—'),
+    b: it.current_build_number,
+    age: relAge(it.deployed_at),
+    state: railState(it.status),
+  });
+  const rail: Rail = {};
+  for (const env of ENVS) {
+    const inEnv = items.filter((i) => i.environment === env);
+    if (!inEnv.length) continue;
+    inEnv.sort((a, b) => ((a.deployed_at ?? '') < (b.deployed_at ?? '') ? 1 : -1));
+    rail[env] = cellOf(inEnv[0]);
+  }
+  const out: Partial<Project> = { rail };
+  if (type === 'firmware-kit') {
+    const channels: Record<string, Rail> = {};
+    for (const it of items) {
+      const label = channelLabel(it.deploy_pipeline);
+      (channels[label] ??= {})[it.environment as Env] = cellOf(it);
+    }
+    out.channels = channels;
+  }
+  if (type === 'mobile') {
+    const cohorts: Record<string, [string, string][]> = {};
+    for (const it of items) {
+      const store = storeLabel(it.deploy_pipeline);
+      for (const c of it.cohorts ?? []) {
+        (cohorts[store] ??= []).push([c.cohort, `${c.version ?? '—'}${c.build ? ` (${c.build})` : ''}`]);
+      }
+    }
+    if (Object.keys(cohorts).length) out.cohorts = cohorts;
+  }
+  return out;
+}
+
 function normalizeProject(raw: unknown): Project {
   const r = raw as Record<string, unknown>;
   return {
-    id: String(r.id ?? r.project_id ?? ''),
-    name: String(r.name ?? r.id ?? ''),
-    type: (r.type as Project['type']) ?? 'cloud',
-    repo: String(r.repo ?? r.repository ?? ''),
+    id: String(r.project_id ?? r.id ?? ''),
+    name: String(r.display_name ?? r.name ?? r.project_id ?? r.id ?? ''),
+    type: normalizeType(r.project_type ?? r.type),
+    repo: String(r.repository ?? r.repo ?? ''),
     promotes: r.promotes as boolean | undefined,
-    components: r.components as Project['components'],
-    channels: r.channels as Project['channels'],
-    rail: r.rail as Project['rail'],
-    cohorts: r.cohorts as Project['cohorts'],
-    accessGroups: r.access_groups as Project['accessGroups'],
-    health: r.health as string | undefined,
   };
 }
 
