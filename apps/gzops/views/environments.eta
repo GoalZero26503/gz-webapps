@@ -1,0 +1,20 @@
+<% layout('layout') %>
+<div class="page-head"><div><h1>Environments</h1><div class="sub">One environment across every project · resolved live from external sources</div></div></div>
+<div class="filters">
+  <% it.ENVS.forEach(function (e) { %>
+    <a class="pill <%= it.env === e ? 'active' : '' %>" href="/cicd/environments?env=<%= e %>"><%= e.toUpperCase() %></a>
+  <% }) %>
+</div>
+<div class="card"><div class="card-body flush"><table class="tbl">
+  <thead><tr><th>Project</th><th>Version in <%= it.env %></th><th>Health</th><th>Age</th></tr></thead>
+  <tbody>
+    <% it.rows.forEach(function (r) { %>
+      <tr class="row-link" onclick="location.href='/cicd/projects/<%= r.projectId %>'">
+        <td><b><%= r.projectName %></b> <%~ it.typeBadge(r.type) %></td>
+        <td class="mono"><% if (r.cell) { %><%= r.cell.v %><% if (r.cell.b) { %> (<%= r.cell.b %>)<% } %><% } else { %>—<% } %></td>
+        <td><% if (r.cell) { %><%~ it.statusBadge(r.cell.state === 'live' ? 'live' : r.cell.state) %><% } else { %><span class="faint">empty</span><% } %></td>
+        <td class="small muted"><% if (r.cell && r.cell.age) { %><%= r.cell.age %> ago<% } %></td>
+      </tr>
+    <% }) %>
+  </tbody>
+</table></div></div>

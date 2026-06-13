@@ -1,0 +1,3 @@
+<% layout('layout') %>
+<div class="page-head"><div><h1>Projects</h1><div class="sub">Every pipeline the platform tracks</div></div></div>
+<%~ include('partials/project-rows', it) %>

@@ -1,0 +1,5 @@
+<% layout('layout') %>
+<div class="empty-state">
+  <div style="font-family:var(--font-mono);font-size:34px;color:var(--text-tertiary);">404</div>
+  <%= it.what || 'Page' %> not found.
+</div>

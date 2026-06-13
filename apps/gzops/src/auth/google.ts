@@ -1,8 +1,7 @@
 import { createHash, randomBytes } from 'node:crypto';
-import { eq } from 'drizzle-orm';
 import { getConfig } from '../config.js';
-import { getDb } from '../db/client.js';
-import { users, type AppUser } from '../db/schema.js';
+import { ensureSeeded, users } from '../store/repo.js';
+import type { AppUser } from '../store/types.js';
 
 export interface OAuthState {
   state: string;
@@ -10,7 +9,7 @@ export interface OAuthState {
   returnTo: string;
 }
 
-interface GoogleIdPayload {
+export interface GoogleIdPayload {
   sub: string;
   email: string;
   name: string;
@@ -66,13 +65,16 @@ async function exchangeCode(code: string, codeVerifier: string): Promise<GoogleI
 
 export type LoginResult =
   | { ok: true; user: AppUser; google: GoogleIdPayload }
-  | { ok: false; reason: 'domain' | 'not-invited' | 'disabled' };
+  | { ok: false; reason: 'domain' }
+  | { ok: false; reason: 'disabled' }
+  | { ok: false; reason: 'not-invited'; google: GoogleIdPayload };
 
 /**
  * Completes the OAuth flow: exchanges the code, then applies the two access
- * gates — Google Workspace domain (hd claim) and the per-user allowlist in
- * the users table. The seed admin (SEED_ADMIN_EMAIL) is bootstrapped on
- * first login so a fresh deployment is never locked out.
+ * gates — Google Workspace domain (hd claim) and the per-user allow-list. The
+ * seed admin (SEED_ADMIN_EMAIL) is bootstrapped on first login so a fresh
+ * deployment is never locked out. A passed-domain but not-allow-listed user
+ * gets their verified identity back so the caller can offer "request access".
  */
 export async function completeLogin(code: string, codeVerifier: string): Promise<LoginResult> {
   const config = getConfig();
@@ -82,24 +84,19 @@ export async function completeLogin(code: string, codeVerifier: string): Promise
     return { ok: false, reason: 'domain' };
   }
 
-  const db = getDb();
-  let user = await db.query.users.findFirst({ where: eq(users.email, google.email) });
+  await ensureSeeded();
+  const table = users();
+  let user = await table.get(google.email);
 
   if (!user && config.seedAdminEmail && google.email === config.seedAdminEmail) {
-    [user] = await db
-      .insert(users)
-      .values({ email: google.email, name: google.name, role: 'admin', invitedBy: 'system' })
-      .returning();
+    user = { email: google.email, name: google.name, role: 'admin', status: 'active', addedBy: 'system', addedAt: new Date().toISOString() };
   }
 
-  if (!user) return { ok: false, reason: 'not-invited' };
+  if (!user) return { ok: false, reason: 'not-invited', google };
   if (user.status !== 'active') return { ok: false, reason: 'disabled' };
 
-  [user] = await db
-    .update(users)
-    .set({ name: google.name, googleSub: google.sub, lastLoginAt: new Date().toISOString() })
-    .where(eq(users.email, google.email))
-    .returning();
+  user = { ...user, name: google.name, googleSub: google.sub, lastLoginAt: new Date().toISOString() };
+  await table.put(user);
 
   return { ok: true, user, google };
 }

@@ -1,6 +1,0 @@
-<div id="users-section">
-  <% if (it.error) { %>
-  <div class="callout callout-error"><%= it.error %></div>
-  <% } %>
-  <%~ include('./users-table', { user: it.user, users: it.users }) %>
-</div>

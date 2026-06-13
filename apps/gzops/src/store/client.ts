@@ -16,14 +16,14 @@ import { getConfig } from '../config.js';
  * Backends: DynamoDB in AWS, an in-memory map (seeded demo data) for local
  * dev — local machines never write to AWS.
  */
-export interface KvTable<T extends Record<string, unknown>> {
+export interface KvTable<T extends object> {
   get(keyValue: string): Promise<T | null>;
   put(item: T): Promise<void>;
   delete(keyValue: string): Promise<void>;
   list(): Promise<T[]>;
 }
 
-class DynamoTable<T extends Record<string, unknown>> implements KvTable<T> {
+class DynamoTable<T extends object> implements KvTable<T> {
   constructor(
     private readonly doc: DynamoDBDocumentClient,
     private readonly tableName: string,
@@ -56,7 +56,7 @@ class DynamoTable<T extends Record<string, unknown>> implements KvTable<T> {
   }
 }
 
-class MemoryTable<T extends Record<string, unknown>> implements KvTable<T> {
+class MemoryTable<T extends object> implements KvTable<T> {
   private readonly items = new Map<string, T>();
 
   constructor(private readonly keyAttr: string) {}
@@ -66,7 +66,7 @@ class MemoryTable<T extends Record<string, unknown>> implements KvTable<T> {
   }
 
   async put(item: T): Promise<void> {
-    this.items.set(String(item[this.keyAttr]), structuredClone(item));
+    this.items.set(String((item as Record<string, unknown>)[this.keyAttr]), structuredClone(item));
   }
 
   async delete(keyValue: string): Promise<void> {
@@ -127,7 +127,7 @@ export async function ensureSeeded(): Promise<void> {
   await seedMemoryStore();
 }
 
-export function typedTable<T extends Record<string, unknown>>(
+export function typedTable<T extends object>(
   pick: (t: AppTables) => KvTable<Record<string, unknown>>,
 ): KvTable<T> {
   return pick(getTables()) as unknown as KvTable<T>;

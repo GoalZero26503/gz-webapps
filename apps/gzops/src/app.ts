@@ -8,9 +8,13 @@ import { Eta } from 'eta';
 import Fastify, { type FastifyInstance } from 'fastify';
 import { authPlugin } from './auth/plugin.js';
 import { getConfig } from './config.js';
+import { adminRoutes } from './routes/admin.js';
 import { authRoutes } from './routes/auth.js';
+import { deployRoutes } from './routes/deploy.js';
+import { notificationRoutes } from './routes/notifications.js';
 import { pageRoutes } from './routes/pages.js';
-import { userRoutes } from './routes/users.js';
+import { programRoutes } from './routes/programs.js';
+import { viewHelpers } from './views/helpers.js';
 
 const rootDir = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -26,7 +30,9 @@ export function buildApp(): FastifyInstance {
     engine: { eta: new Eta() },
     root: path.join(rootDir, 'views'),
     viewExt: 'eta',
-    defaultContext: { appName: getConfig().appName, stage: getConfig().stage },
+    // Helpers (rails, badges, timeAgo, …) are stateless, so they ride in the
+    // default context and every template can call them as `<%~ it.rail(...) %>`.
+    defaultContext: { appName: getConfig().appName, stage: getConfig().stage, ...viewHelpers },
   });
   // no-cache + ETag: bundles aren't content-hashed, so clients must
   // revalidate (cheap 304s) rather than serve stale JS after a deploy
@@ -41,7 +47,10 @@ export function buildApp(): FastifyInstance {
   app.register(authPlugin);
   app.register(authRoutes);
   app.register(pageRoutes);
-  app.register(userRoutes);
+  app.register(programRoutes);
+  app.register(deployRoutes);
+  app.register(adminRoutes);
+  app.register(notificationRoutes);
 
   app.get('/healthz', async () => ({ ok: true }));
 

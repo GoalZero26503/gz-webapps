@@ -4,5 +4,5 @@
     "types": ["node"],
     "noEmit": true
   },
-  "include": ["src/**/*", "cdk/**/*", "drizzle.config.ts"]
+  "include": ["src/**/*", "cdk/**/*"]
 }

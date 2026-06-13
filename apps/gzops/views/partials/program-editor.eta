@@ -1,0 +1,64 @@
+<%
+  // Canonical editor state lives in these four named fields. Structural edits
+  // include exactly them (never the per-section <select>s, which share a name),
+  // plus `this` for the control that changed.
+  var inc = "[name='sectionsJson'],[name='name'],[name='description'],[name='published']";
+  var pid = it.program.id;
+%>
+<div id="editor-root">
+  <form id="editor-form">
+    <input type="hidden" name="sectionsJson" value="<%= JSON.stringify(it.form.sections) %>" />
+
+    <div class="page-head">
+      <div><h1>Edit program</h1><div class="sub small">last published v<%= it.program.version %> · by <%= it.program.updatedBy %> · <%~ it.timeAgo(it.program.updatedAt) %></div></div>
+      <span class="grow"></span>
+      <label class="checkrow" style="margin-right:8px;"><input type="checkbox" name="published" <%= it.form.published ? 'checked' : '' %> /> Published</label>
+      <a class="btn" href="/dashboard/<%= pid %>">Cancel</a>
+      <button class="btn btn-primary" type="button" hx-post="/cicd/programs/<%= pid %>/save" hx-include="<%= inc %>">Save changes</button>
+    </div>
+
+    <div class="editor-grid">
+      <div>
+        <div class="card"><div class="card-body">
+          <div class="field"><label>Program name</label><input type="text" name="name" value="<%= it.form.name %>" /></div>
+          <div class="field"><label>Short description</label><input type="text" name="description" value="<%= it.form.description %>" /></div>
+        </div></div>
+
+        <div class="label-caps" style="margin: 4px 0 8px;">Sections — order is top-to-bottom on the dashboard</div>
+        <% it.form.sections.forEach(function (sec, i) { %>
+          <% var proj = it.projectsById[sec.projectId]; var facetList = proj ? (it.facets[proj.type] || []) : []; %>
+          <div class="section-card">
+            <div class="sc-head">
+              <div class="order-btns">
+                <button type="button" title="Move up" hx-post="/cicd/programs/<%= pid %>/edit/apply" hx-vals='{"action":"sec-up","sec":<%= i %>}' hx-include="<%= inc %>" hx-target="#editor-root" hx-swap="outerHTML">▲</button>
+                <button type="button" title="Move down" hx-post="/cicd/programs/<%= pid %>/edit/apply" hx-vals='{"action":"sec-down","sec":<%= i %>}' hx-include="<%= inc %>" hx-target="#editor-root" hx-swap="outerHTML">▼</button>
+              </div>
+              <select name="projectId" hx-post="/cicd/programs/<%= pid %>/edit/apply" hx-trigger="change" hx-vals='{"action":"sec-project","sec":<%= i %>}' hx-include="<%= inc %>, this" hx-target="#editor-root" hx-swap="outerHTML">
+                <% it.projects.forEach(function (pp) { %><option value="<%= pp.id %>" <%= pp.id === sec.projectId ? 'selected' : '' %>><%= pp.name %> — <%= pp.type %></option><% }) %>
+              </select>
+              <span class="grow"></span>
+              <button type="button" class="btn sm ghost" title="Remove section" hx-post="/cicd/programs/<%= pid %>/edit/apply" hx-vals='{"action":"sec-remove","sec":<%= i %>}' hx-include="<%= inc %>" hx-target="#editor-root" hx-swap="outerHTML">✕</button>
+            </div>
+            <div>
+              <% facetList.forEach(function (f) { %>
+                <label class="checkrow"><input type="checkbox" <%= sec.facets.includes(f.id) ? 'checked' : '' %>
+                  hx-post="/cicd/programs/<%= pid %>/edit/apply" hx-trigger="change"
+                  hx-vals='{"action":"sec-facet","sec":<%= i %>,"facet":"<%= f.id %>"}' hx-include="<%= inc %>" hx-target="#editor-root" hx-swap="outerHTML" /><%= f.label %></label>
+              <% }) %>
+            </div>
+          </div>
+        <% }) %>
+        <button type="button" class="add-section" hx-post="/cicd/programs/<%= pid %>/edit/apply" hx-vals='{"action":"sec-add"}' hx-include="<%= inc %>" hx-target="#editor-root" hx-swap="outerHTML">+ Add section</button>
+        <div class="note-banner" style="margin-top:14px;">Programs are visible to all signed-in users; editing requires editor or admin.</div>
+      </div>
+
+      <div class="preview-pane">
+        <div class="label-caps" style="margin-bottom:8px;">Preview</div>
+        <div class="mini">
+          <% if (!it.form.sections.length) { %><div class="small faint">Add a section to preview the dashboard.</div><% } %>
+          <% it.form.sections.forEach(function (sec) { %><%~ it.programSection(sec, it.projectsById, it.deployments) %><% }) %>
+        </div>
+      </div>
+    </div>
+  </form>
+</div>

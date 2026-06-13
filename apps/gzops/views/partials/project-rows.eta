@@ -1,0 +1,23 @@
+<div id="proj-results">
+  <div class="filters">
+    <input type="search" name="q" placeholder="Search projects…" value="<%= it.q %>"
+      hx-get="/cicd/projects/search" hx-target="#proj-results" hx-swap="outerHTML"
+      hx-trigger="input changed delay:300ms, search" hx-include="[name='type']" style="width:240px;" />
+    <input type="hidden" name="type" value="<%= it.type %>" />
+    <% ['all','firmware','mobile','cloud'].forEach(function (t) { %>
+      <button class="pill <%= it.type === t ? 'active' : '' %>"
+        hx-get="<%= `/cicd/projects/search?type=${t}` %>" hx-target="#proj-results" hx-swap="outerHTML" hx-include="[name='q']"><%= t.toUpperCase() %></button>
+    <% }) %>
+    <span class="grow"></span>
+    <span class="small faint"><%= it.total %> registered projects</span>
+  </div>
+  <div class="card"><div class="card-body flush"><table class="tbl"><tbody>
+    <% if (!it.projects.length) { %><tr><td><div class="empty-state">No projects match</div></td></tr><% } %>
+    <% it.projects.forEach(function (p) { %>
+      <tr class="row-link" onclick="location.href='/cicd/projects/<%= p.id %>'">
+        <td style="min-width:170px;"><div style="font-weight:600;"><%= p.name %></div><div><%~ it.typeBadge(p.type) %></div></td>
+        <td style="width:62%;"><%~ it.rail(p.rail || {}) %></td>
+      </tr>
+    <% }) %>
+  </tbody></table></div></div>
+</div>

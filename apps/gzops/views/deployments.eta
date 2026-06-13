@@ -1,0 +1,19 @@
+<% layout('layout') %>
+<div class="page-head"><div><h1>Deployments</h1><div class="sub">Every deploy is a recorded, attributable action</div></div></div>
+<div class="card"><div class="card-body flush"><table class="tbl">
+  <thead><tr><th>Status</th><th>Project</th><th>Version</th><th>Env</th><th>Pipeline</th><th>Triggered by</th><th>When</th></tr></thead>
+  <tbody>
+    <% it.deployments.forEach(function (d) { %>
+      <% var p = it.projectsById[d.projectId]; %>
+      <tr class="row-link" onclick="location.href='/cicd/deployments/<%= d.id %>'">
+        <td><%~ it.statusBadge(d.status) %><% if (d.progress != null && d.status === 'in_progress') { %> <span class="small faint"><%= d.progress %>%</span><% } %></td>
+        <td><b><%= p ? p.name : d.projectId %></b></td>
+        <td class="mono"><%= d.version %></td>
+        <td class="mono"><%= d.env %></td>
+        <td><%= d.pipeline %></td>
+        <td><%= d.by %></td>
+        <td class="small muted"><%~ it.timeAgo(d.at) %></td>
+      </tr>
+    <% }) %>
+  </tbody>
+</table></div></div>

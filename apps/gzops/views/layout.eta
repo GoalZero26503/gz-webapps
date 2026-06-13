@@ -7,31 +7,75 @@
   <link rel="icon" href="/favicon.ico" sizes="32x32" />
   <link rel="stylesheet" href="/styles.css" />
   <link rel="stylesheet" href="/vendor/lucide/lucide.css" />
-  <!-- Font Awesome is vendored too; uncomment to opt in (see conventions.md → Icons):
-  <link rel="stylesheet" href="/vendor/fontawesome/css/all.min.css" /> -->
   <script src="/vendor/htmx.min.js" defer></script>
   <script type="module" src="/assets/app.js"></script>
 </head>
 <body>
-  <% if (it.user) { %>
-  <header class="topbar">
-    <a class="topbar-brand" href="/">
-      <img src="/gz-logo-white.png" alt="" height="20" />
-      <span>GZOps</span>
-      <% if (it.stage !== 'prod') { %><span class="badge badge-stage"><%= it.stage %></span><% } %>
-    </a>
-    <nav class="topbar-nav">
-      <a href="/"><i class="icon-layout-dashboard"></i> Dashboard</a>
-      <% if (it.user.permissions.includes('users:read')) { %><a href="/users"><i class="icon-users"></i> Users</a><% } %>
+  <% if (it.user && it.area) { %>
+  <header class="topnav">
+    <a class="brand" href="/">GZ<span class="cursor">Ops</span></a>
+    <% if (it.stage !== 'prod') { %><span class="badge badge-stage"><%= it.stage %></span><% } %>
+    <nav class="area-tabs">
+      <% it.areaTabs.forEach(function (t) { %>
+        <a class="tab <%= t.key === it.area ? 'active' : '' %>" href="<%= t.href %>"><%= t.label %></a>
+      <% }) %>
     </nav>
-    <div class="topbar-user">
+    <span class="grow"></span>
+    <details class="bell">
+      <summary class="bell-btn" title="Notifications">
+        <i class="icon-bell"></i>
+        <% if (it.unread > 0) { %><span class="bell-count"><%= it.unread %></span><% } %>
+      </summary>
+      <div class="bell-menu">
+        <div class="bm-head">
+          <b>Notifications</b><span class="grow"></span>
+          <% if (it.unread > 0) { %>
+            <form method="post" action="/notifications/read"><button class="btn sm ghost" type="submit">Mark all read</button></form>
+          <% } %>
+        </div>
+        <div class="bm-list">
+          <% if (it.notifs.length === 0) { %>
+            <div class="notif"><div class="n-t muted">No notifications</div></div>
+          <% } %>
+          <% it.notifs.slice(0, 12).forEach(function (n) { %>
+            <a class="notif <%= n.read ? '' : 'unread' %>" href="<%= n.href || '#' %>">
+              <div class="n-t"><%= n.text %></div>
+              <div class="n-at"><%~ it.timeAgo(n.at) %></div>
+            </a>
+          <% }) %>
+        </div>
+      </div>
+    </details>
+    <div class="user-menu">
       <span class="topbar-email"><%= it.user.email %></span>
-      <form method="post" action="/auth/logout"><button class="btn btn-ghost" type="submit"><i class="icon-log-out"></i> Sign out</button></form>
+      <form method="post" action="/auth/logout"><button class="btn btn-ghost sm" type="submit"><i class="icon-log-out"></i> Sign out</button></form>
     </div>
   </header>
-  <% } %>
-  <main class="page">
+  <div class="shell">
+    <aside class="sidebar">
+      <% it.sidebar.forEach(function (group) { %>
+        <% if (group.heading) { %><div class="nav-section"><%= group.heading %></div><% } %>
+        <% group.items.forEach(function (item) { %>
+          <a class="nav-item <%= item.key === it.active ? 'active' : '' %>" href="<%= item.href %>">
+            <i class="ico <%= item.icon %>"></i>
+            <span><%= item.label %></span>
+            <% if (item.health) { %><span class="grow"></span><span class="dot <%= item.health %>"></span><% } %>
+          </a>
+        <% }) %>
+      <% }) %>
+      <div class="spacer"></div>
+      <div class="foot">gzops · <%= it.stage %></div>
+    </aside>
+    <main class="main">
+      <div class="content">
+        <%~ it.body %>
+      </div>
+    </main>
+  </div>
+  <% } else { %>
+  <main class="gate">
     <%~ it.body %>
   </main>
+  <% } %>
 </body>
 </html>

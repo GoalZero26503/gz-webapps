@@ -1,0 +1,26 @@
+<% layout('layout') %>
+<div class="page-head">
+  <div><h1>Programs</h1><div class="sub">Curated product-line views, composed from projects</div></div>
+  <span class="grow"></span>
+  <% if (it.canEdit) { %>
+    <form method="post" action="/cicd/programs/new" hx-post="/cicd/programs/new" style="display:inline;">
+      <button class="btn btn-primary" type="submit">+ New program</button>
+    </form>
+  <% } %>
+</div>
+<div class="card"><div class="card-body flush">
+  <table class="tbl">
+    <thead><tr><th>Program</th><th>Composition</th><th>Status</th><th>Last published</th><% if (it.canEdit) { %><th></th><% } %></tr></thead>
+    <tbody>
+      <% it.programs.forEach(function (pr) { %>
+        <tr class="row-link" onclick="location.href='/dashboard/<%= pr.id %>'">
+          <td><div style="font-weight:600;"><%= pr.name %></div><div class="small muted"><%= pr.description %></div></td>
+          <td><%= pr.sections.length %> sections</td>
+          <td><%~ it.statusBadge(pr.status) %></td>
+          <td class="small muted">v<%= pr.version %> · <%= pr.updatedBy %> · <%~ it.timeAgo(pr.updatedAt) %></td>
+          <% if (it.canEdit) { %><td><a class="btn sm ghost" href="/cicd/programs/<%= pr.id %>/edit" onclick="event.stopPropagation()">edit</a></td><% } %>
+        </tr>
+      <% }) %>
+    </tbody>
+  </table>
+</div></div>

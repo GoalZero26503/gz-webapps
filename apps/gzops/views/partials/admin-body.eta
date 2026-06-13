@@ -1,0 +1,63 @@
+<div id="admin-body">
+  <div class="card">
+    <div class="card-head"><span class="accent-bar" style="background:var(--yellow);"></span><h2>Pending requests</h2><span class="grow"></span><span class="badge <%= it.pending.length ? 'warn' : 'idle' %>"><%= it.pending.length %></span></div>
+    <div class="card-body flush">
+      <% if (it.pending.length) { %>
+        <table class="tbl"><thead><tr><th>Person</th><th>Requested</th><th>Role to grant</th><th></th></tr></thead><tbody>
+          <% it.pending.forEach(function (r) { %>
+            <tr>
+              <td><b><%= r.name %></b><div class="small mono faint"><%= r.email %></div></td>
+              <td class="small muted"><%~ it.timeAgo(r.requestedAt) %></td>
+              <td>
+                <form id="approve-<%= r.id %>" hx-post="/admin/requests/<%= r.id %>/approve" hx-target="#admin-body" hx-swap="outerHTML">
+                  <select name="role">
+                    <option value="viewer">Viewer (read-only)</option>
+                    <option value="editor">Editor (read/write)</option>
+                    <option value="admin">Admin</option>
+                  </select>
+                </form>
+              </td>
+              <td style="text-align:right;">
+                <button class="btn sm accent" type="submit" form="approve-<%= r.id %>">Approve</button>
+                <button class="btn sm danger" hx-post="/admin/requests/<%= r.id %>/deny" hx-target="#admin-body" hx-swap="outerHTML">Deny</button>
+              </td>
+            </tr>
+          <% }) %>
+        </tbody></table>
+      <% } else { %><div class="empty-state">No pending requests</div><% } %>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-head"><span class="accent-bar"></span><h2>Users</h2><span class="grow"></span><span class="small faint"><%= it.users.length %> on the allow-list</span></div>
+    <div class="card-body flush"><table class="tbl">
+      <thead><tr><th>Person</th><th>Role</th><th>Added</th><th></th></tr></thead><tbody>
+        <% it.users.forEach(function (u) { %>
+          <tr>
+            <td><b><%= u.name || u.email %></b><div class="small mono faint"><%= u.email %></div></td>
+            <td>
+              <% if (u.email === it.me) { %><span class="badge info"><%= u.role %> (you)</span>
+              <% } else { %>
+                <select hx-post="/admin/users/<%= encodeURIComponent(u.email) %>/role" hx-trigger="change" hx-target="#admin-body" hx-swap="outerHTML" name="role">
+                  <% ['viewer','editor','admin'].forEach(function (role) { %><option value="<%= role %>" <%= u.role === role ? 'selected' : '' %>><%= role %></option><% }) %>
+                </select>
+              <% } %>
+            </td>
+            <td class="small muted"><%~ it.timeAgo(u.addedAt) %> by <%= u.addedBy %></td>
+            <td style="text-align:right;">
+              <% if (u.email !== it.me) { %><button class="btn sm ghost" hx-post="/admin/users/<%= encodeURIComponent(u.email) %>/remove" hx-target="#admin-body" hx-swap="outerHTML" hx-confirm="Remove <%= u.email %>?">remove</button><% } %>
+            </td>
+          </tr>
+        <% }) %>
+      </tbody></table></div>
+  </div>
+
+  <div class="card">
+    <div class="card-head"><h2>Access log</h2></div>
+    <div class="card-body flush">
+      <% it.accessLog.forEach(function (l) { %>
+        <div class="notif"><div class="n-t"><b><%= l.actor %></b> <%= l.action %> — <span class="muted"><%= l.detail %></span></div><div class="n-at"><%~ it.timeAgo(l.at) %></div></div>
+      <% }) %>
+    </div>
+  </div>
+</div>

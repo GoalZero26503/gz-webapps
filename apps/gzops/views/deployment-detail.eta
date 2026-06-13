@@ -1,0 +1,36 @@
+<% layout('layout') %>
+<div class="page-head">
+  <div>
+    <div style="display:flex;align-items:center;gap:10px;">
+      <h1 style="font-size:19px;">Deploy <span class="mono"><%= it.deployment.version %></span> → <span class="mono"><%= it.deployment.env %></span></h1>
+      <%~ it.statusBadge(it.deployment.status) %>
+      <% if (it.deployment.status === 'in_progress' && it.deployment.progress != null) { %><span class="small muted"><%= it.deployment.progress %>%</span><% } %>
+    </div>
+    <div class="sub small">
+      <% if (it.project) { %><a href="/cicd/projects/<%= it.project.id %>"><%= it.project.name %></a> · <% } %>
+      pipeline <b><%= it.deployment.pipeline %></b> · executor <%= it.deployment.executor %> · triggered by <%= it.deployment.by %> · <%~ it.timeAgo(it.deployment.at) %>
+    </div>
+  </div>
+  <span class="grow"></span>
+  <% if (it.project) { %><a class="btn sm" href="/cicd/projects/<%= it.project.id %>?tab=builds">View artifact</a><% } %>
+  <% if (it.deployment.workflowUrl) { %><a class="btn sm" href="<%= it.deployment.workflowUrl %>" target="_blank" rel="noopener">Workflow run ↗</a><% } %>
+  <% if (it.deployment.externalUrl) { %><a class="btn sm" href="<%= it.deployment.externalUrl %>" target="_blank" rel="noopener">Open in store ↗</a><% } %>
+</div>
+
+<% if (it.deployment.note) { %>
+  <div class="alert err" style="margin-bottom:16px;"><span class="dot err" style="margin-top:5px;"></span><div><div class="t"><%= it.deployment.note %></div></div></div>
+<% } %>
+
+<div class="card">
+  <div class="card-head"><span class="accent-bar" <% if (it.deployment.status === 'failed') { %>style="background:var(--red);"<% } %>></span><h2>Deploy log</h2>
+    <span class="grow"></span><span class="small faint">bounded event timeline · full logs in S3</span></div>
+  <div class="card-body flush"><div class="log-view">
+    <% if (it.deployment.log && it.deployment.log.length) { %>
+      <% it.deployment.log.forEach(function (line) { %>
+        <div class="log-line <%= line[1] %>"><span class="log-t"><%= line[0] %></span><span class="log-lv"><%= line[1].toUpperCase() %></span><span><%= line[2] %></span></div>
+      <% }) %>
+    <% } else { %>
+      <div class="log-line info"><span><%= it.deployment.note || 'No log captured for this deployment.' %></span></div>
+    <% } %>
+  </div></div>
+</div>
