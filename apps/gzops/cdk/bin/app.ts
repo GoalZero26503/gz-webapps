@@ -12,6 +12,12 @@ const seedAdminEmail = (app.node.tryGetContext('seedAdminEmail') as string) || '
 // (by the deploy workflow), so a credential-free `cdk synth` needs no lookup.
 const hostedZoneName = (app.node.tryGetContext('hostedZoneName') as string) || 'goalzeroapp.com';
 const hostedZoneId = app.node.tryGetContext('hostedZoneId') as string | undefined;
+// Wildcard *.goalzeroapp.com cert is in gz-dev us-east-1; the zone is in gz-prod,
+// so we import the cert and manage the alias A-record in prod separately. This
+// default lets CI's `cdk deploy -c stage=dev` attach the domain automatically.
+const certArn =
+  (app.node.tryGetContext('certArn') as string) ||
+  (stage === 'dev' ? 'arn:aws:acm:us-east-1:336507940372:certificate/4879fd85-38fe-45c5-8381-7feed27db266' : undefined);
 const domainName = (app.node.tryGetContext('domainName') as string) || (stage === 'prod' ? 'gzops2.goalzeroapp.com' : `gzops2-${stage}.goalzeroapp.com`);
 
 const platformBaseUrl =
@@ -27,4 +33,5 @@ new WebappStack(app, `GzWeb-Gzops-${stage}`, {
   domainName,
   hostedZoneName,
   hostedZoneId,
+  certArn,
 });

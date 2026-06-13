@@ -34,6 +34,13 @@ export interface WebappStackProps extends cdk.StackProps {
    * credential-free `cdk synth` (PR validation) needs no Route53 lookup.
    */
   hostedZoneId?: string;
+  /**
+   * Imported ACM cert ARN (us-east-1) covering domainName — used when the
+   * Route53 zone lives in another account (e.g. *.goalzeroapp.com in gz-prod).
+   * When set, the domain attaches to CloudFront but NO in-account DNS record is
+   * created; the alias record is managed in the owning account separately.
+   */
+  certArn?: string;
 }
 
 const appDir = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
@@ -52,9 +59,10 @@ const TABLES: Record<string, string> = {
 export class WebappStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props: WebappStackProps) {
     super(scope, id, props);
-    const { appName, stage, seedAdminEmail, platformBaseUrl, hostedZoneName, hostedZoneId } = props;
-    // Domain resources are gated on a hosted-zone ID so credential-free synth works.
-    const domainName = hostedZoneId ? props.domainName : undefined;
+    const { appName, stage, seedAdminEmail, platformBaseUrl, hostedZoneName, hostedZoneId, certArn } = props;
+    // Domain is active when we can attach a cert: an imported ARN (cross-account
+    // zone) or an in-account hosted zone. Gated so credential-free synth works.
+    const domainName = (certArn || hostedZoneId) ? props.domainName : undefined;
     const tablePrefix = `gzweb-${stage}-${appName}-`;
 
     // gzweb namespace tags — IAM access for webapp operators is scoped to these
@@ -75,7 +83,11 @@ export class WebappStack extends cdk.Stack {
     // ── Custom domain (ACM us-east-1 + Route53) ─────────────────
     let certificate: acm.ICertificate | undefined;
     let hostedZone: route53.IHostedZone | undefined;
-    if (domainName && hostedZoneId && hostedZoneName) {
+    if (domainName && certArn) {
+      // Imported cert (e.g. *.goalzeroapp.com in gz-dev us-east-1). The zone is
+      // cross-account, so no Route53 records are created here.
+      certificate = acm.Certificate.fromCertificateArn(this, 'DomainCert', certArn);
+    } else if (domainName && hostedZoneId && hostedZoneName) {
       // fromHostedZoneAttributes (not fromLookup) — no AWS call, so synth works
       // without credentials.
       hostedZone = route53.HostedZone.fromHostedZoneAttributes(this, 'Zone', { hostedZoneId, zoneName: hostedZoneName });
