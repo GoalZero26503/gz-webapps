@@ -4,7 +4,7 @@
       hx-get="/cicd/projects/search" hx-target="#proj-results" hx-swap="outerHTML"
       hx-trigger="input changed delay:300ms, search" hx-include="[name='type']" style="width:240px;" />
     <input type="hidden" name="type" value="<%= it.type %>" />
-    <% ['all','firmware','mobile','cloud'].forEach(function (t) { %>
+    <% ;['all','firmware','mobile','cloud'].forEach(function (t) { %>
       <button class="pill <%= it.type === t ? 'active' : '' %>"
         hx-get="<%= `/cicd/projects/search?type=${t}` %>" hx-target="#proj-results" hx-swap="outerHTML" hx-include="[name='q']"><%= t.toUpperCase() %></button>
     <% }) %>

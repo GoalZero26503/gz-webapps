@@ -15,7 +15,7 @@
       hx-get="/dashboard/search" hx-target="#prog-results" hx-swap="outerHTML"
       hx-trigger="input changed delay:300ms, search" hx-include="[name='status']" style="width:240px;" />
     <input type="hidden" name="status" value="<%= it.statusFilter %>" />
-    <% ['all','published','draft'].forEach(function (s) { %>
+    <% ;['all','published','draft'].forEach(function (s) { %>
       <% if (!(s === 'draft' && !it.canEdit)) { %>
         <button class="pill <%= it.statusFilter === s ? 'active' : '' %>"
           hx-get="<%= `/dashboard/search?status=${s}` %>" hx-target="#prog-results" hx-swap="outerHTML" hx-include="[name='q']">

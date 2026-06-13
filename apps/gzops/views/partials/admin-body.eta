@@ -39,7 +39,7 @@
               <% if (u.email === it.me) { %><span class="badge info"><%= u.role %> (you)</span>
               <% } else { %>
                 <select hx-post="/admin/users/<%= encodeURIComponent(u.email) %>/role" hx-trigger="change" hx-target="#admin-body" hx-swap="outerHTML" name="role">
-                  <% ['viewer','editor','admin'].forEach(function (role) { %><option value="<%= role %>" <%= u.role === role ? 'selected' : '' %>><%= role %></option><% }) %>
+                  <% ;['viewer','editor','admin'].forEach(function (role) { %><option value="<%= role %>" <%= u.role === role ? 'selected' : '' %>><%= role %></option><% }) %>
                 </select>
               <% } %>
             </td>
