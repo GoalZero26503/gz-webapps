@@ -1,0 +1,18 @@
+<% var d = it.deployment; var active = d.status === 'in_progress' || d.status === 'pending'; %>
+<div class="deploy-tile <%= d.status %>"
+  <% if (active) { %>hx-get="/cicd/deployments/<%= d.id %>/tile" hx-trigger="every 1500ms" hx-swap="outerHTML"<% } %>>
+  <div class="dt-head">
+    <span class="dt-title">Deploy <span class="mono"><%= d.version %></span> → <span class="mono"><%= d.env %></span></span>
+    <%~ it.statusBadge(d.status) %>
+    <span class="grow"></span>
+    <a class="small" href="/cicd/deployments/<%= d.id %>">details →</a>
+  </div>
+  <% if (active) { %>
+    <div class="progress"><div class="progress-bar" style="width:<%= d.progress || 0 %>%"></div></div>
+    <div class="small faint" style="margin-top:4px;"><%= d.progress || 0 %>% — live</div>
+  <% } else if (d.status === 'succeeded') { %>
+    <div class="small ok-text" style="margin-top:4px;"><i class="icon-check"></i> Completed</div>
+  <% } else if (d.status === 'failed') { %>
+    <div class="small err-text" style="margin-top:4px;"><i class="icon-x"></i> <%= d.note || 'Deploy failed' %></div>
+  <% } %>
+</div>

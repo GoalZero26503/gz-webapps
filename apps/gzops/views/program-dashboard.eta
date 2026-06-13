@@ -1,0 +1,23 @@
+<% layout('layout') %>
+<div class="page-head">
+  <div>
+    <div style="display:flex;align-items:center;gap:10px;">
+      <h1><%= it.program.name %></h1>
+      <% if (it.program.status === 'draft') { %><%~ it.statusBadge('draft') %><% } %>
+    </div>
+    <div class="sub"><%= it.program.description %></div>
+  </div>
+  <span class="grow"></span>
+  <span class="badge <%= it.failures ? 'err' : 'info' %>" style="margin-top:6px;">
+    <%= it.inflight %> deploy<%= it.inflight === 1 ? '' : 's' %> in flight ·
+    <%= it.failures ? `${it.failures} failure${it.failures === 1 ? '' : 's'}` : 'no failures' %>
+  </span>
+  <% if (it.canEdit) { %><a class="btn btn-primary" href="/cicd/programs/<%= it.program.id %>/edit"><i class="icon-pencil"></i> Edit program</a><% } %>
+</div>
+
+<% if (!it.program.sections.length) { %>
+  <div class="empty-state">This program has no sections yet.<% if (it.canEdit) { %> <a href="/cicd/programs/<%= it.program.id %>/edit">Add some →</a><% } %></div>
+<% } %>
+<% it.program.sections.forEach(function (sec) { %>
+  <%~ it.programSection(sec, it.projectsById, it.deployments) %>
+<% }) %>

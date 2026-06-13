@@ -1,0 +1,81 @@
+import { SSMClient, GetParameterCommand } from '@aws-sdk/client-ssm';
+
+export interface AppConfig {
+  appName: string;
+  stage: string;
+  /** Canonical origin for OAuth redirects, e.g. https://gzops2-dev.goalzeroapp.com */
+  baseUrl: string;
+  allowedDomains: string[];
+  seedAdminEmail: string | null;
+  jwtSecret: string;
+  googleClientId: string;
+  googleClientSecret: string;
+  /** DynamoDB table name prefix, e.g. gzweb-dev-gzops- (KV escape hatch, charter §3.5). */
+  tablePrefix: string;
+  /** 'dynamo' in AWS; 'memory' for local dev (seeded demo data, no AWS writes). */
+  storeMode: 'dynamo' | 'memory';
+  /** gzops-platform API origin for the server-side BFF client (SigV4). */
+  platformBaseUrl: string;
+  /** 'live' signs real requests; 'fake' serves seeded demo data for local dev. */
+  platformMode: 'live' | 'fake';
+  isLocal: boolean;
+}
+
+let config: AppConfig | null = null;
+
+async function getParam(ssm: SSMClient, name: string, decrypt: boolean): Promise<string> {
+  const result = await ssm.send(new GetParameterCommand({ Name: name, WithDecryption: decrypt }));
+  return result.Parameter!.Value!;
+}
+
+/**
+ * Loads configuration once at startup. Non-secret values come from the
+ * environment (set by CDK in AWS, by .env/direnv locally). Secrets come from
+ * SSM under /gzweb/{app}/{stage}/* in AWS, or plain env vars locally.
+ */
+export async function loadConfig(): Promise<AppConfig> {
+  if (config) return config;
+
+  const appName = process.env.APP_NAME || 'gzops';
+  const stage = process.env.STAGE || 'dev';
+  const isLocal = !process.env.AWS_LAMBDA_FUNCTION_NAME;
+
+  let jwtSecret = process.env.JWT_SECRET;
+  let googleClientId = process.env.GOOGLE_CLIENT_ID;
+  let googleClientSecret = process.env.GOOGLE_CLIENT_SECRET;
+
+  if (!jwtSecret || !googleClientId || !googleClientSecret) {
+    const ssm = new SSMClient({});
+    const prefix = `/gzweb/${appName}/${stage}`;
+    [jwtSecret, googleClientId, googleClientSecret] = await Promise.all([
+      getParam(ssm, `${prefix}/jwt_secret`, true),
+      getParam(ssm, `${prefix}/google_client_id`, false),
+      getParam(ssm, `${prefix}/google_client_secret`, true),
+    ]);
+  }
+
+  config = {
+    appName,
+    stage,
+    baseUrl: process.env.APP_BASE_URL || 'http://localhost:3000',
+    allowedDomains: (process.env.ALLOWED_DOMAINS || 'bioliteenergy.com')
+      .split(',')
+      .map((d) => d.trim())
+      .filter(Boolean),
+    seedAdminEmail: process.env.SEED_ADMIN_EMAIL || null,
+    jwtSecret,
+    googleClientId,
+    googleClientSecret,
+    tablePrefix: process.env.TABLE_PREFIX || `gzweb-${stage}-${appName}-`,
+    storeMode: (process.env.STORE_MODE as 'dynamo' | 'memory') || (isLocal ? 'memory' : 'dynamo'),
+    platformBaseUrl: process.env.PLATFORM_BASE_URL || 'https://gzops-api-dev.goalzeroapp.com',
+    platformMode: (process.env.PLATFORM_MODE as 'live' | 'fake') || (isLocal ? 'fake' : 'live'),
+    isLocal,
+  };
+  return config;
+}
+
+export function getConfig(): AppConfig {
+  if (!config) throw new Error('loadConfig() must complete before getConfig()');
+  return config;
+}

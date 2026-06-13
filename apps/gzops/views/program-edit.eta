@@ -1,0 +1,2 @@
+<% layout('layout') %>
+<%~ include('partials/program-editor', it) %>

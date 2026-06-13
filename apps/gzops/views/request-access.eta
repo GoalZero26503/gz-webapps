@@ -1,0 +1,23 @@
+<% layout('layout') %>
+<div class="gate-card gate-403">
+  <div class="code">403</div>
+  <% if (it.submitted) { %>
+    <h1>Request sent</h1>
+    <p>Thanks, <%= it.identity.name %>. An admin will review your request for
+      <span class="mono"><%= it.identity.email %></span> and you'll get access once approved.</p>
+    <a class="btn block" href="/login">Back to sign in</a>
+  <% } else { %>
+    <h1>You're not on the allow-list yet</h1>
+    <p>Your Google account <span class="mono"><%= it.identity.email %></span> passed sign-in,
+      but an admin hasn't granted you access to GZOps.</p>
+    <% if (it.alreadyPending) { %>
+      <div class="callout">Your access request is already pending review.</div>
+      <a class="btn block" href="/login">Back to sign in</a>
+    <% } else { %>
+      <form method="post" action="/request-access" class="gate-actions">
+        <button class="btn btn-primary" type="submit"><i class="icon-send"></i> Request access</button>
+        <a class="btn" href="/login">Cancel</a>
+      </form>
+    <% } %>
+  <% } %>
+</div>

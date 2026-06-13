@@ -1,0 +1,91 @@
+<% layout('layout') %>
+<% var depVer = (it.project.rail && it.project.rail.dev) ? it.project.rail.dev.v : 'latest'; %>
+<% var navFor = function (e) { return it.latestByEnv[e] ? '/cicd/deployments/' + it.latestByEnv[e] : null; }; %>
+
+<div class="page-head">
+  <div>
+    <div style="display:flex;align-items:center;gap:10px;"><h1><%= it.project.name %></h1><%~ it.typeBadge(it.project.type) %></div>
+    <div class="sub mono small"><%= it.project.repo %></div>
+  </div>
+</div>
+
+<div class="filters">
+  <a class="pill <%= it.tab === 'deployment' ? 'active' : '' %>" href="/cicd/projects/<%= it.project.id %>?tab=deployment">DEPLOYMENT</a>
+  <a class="pill <%= it.tab === 'builds' ? 'active' : '' %>" href="/cicd/projects/<%= it.project.id %>?tab=builds">BUILDS</a>
+</div>
+
+<% if (it.tab === 'deployment') { %>
+  <div class="card">
+    <div class="card-head"><span class="accent-bar"></span><h2>Deployed</h2></div>
+    <div class="card-body">
+      <% if (it.project.type === 'firmware-kit' && it.project.channels) { %>
+        <%~ it.channelRail(it.project.channels, navFor) %>
+      <% } else { %>
+        <%~ it.rail(it.project.rail || {}, true, navFor) %>
+      <% } %>
+    </div>
+  </div>
+
+  <% if (it.project.type === 'mobile') { %>
+    <div class="card"><div class="card-head"><h2>Distribution</h2></div><div class="card-body"><div class="dist-grid">
+      <% Object.keys(it.project.cohorts || {}).forEach(function (store) { %>
+        <div><div class="label-caps" style="margin-bottom:6px;"><%= store %></div>
+          <% it.project.cohorts[store].forEach(function (row) { %><div class="kv"><span class="k"><%= row[0] %></span><span class="v"><%= row[1] %></span></div><% }) %>
+        </div>
+      <% }) %>
+      <div><div class="label-caps" style="margin-bottom:6px;">Access groups</div>
+        <% if ((it.project.accessGroups || []).length) { %>
+          <% it.project.accessGroups.forEach(function (g) { %><div class="kv"><span class="k"><%= g.name %></span><span class="v"><%= g.published %></span></div><% }) %>
+        <% } else { %><div class="small faint">none</div><% } %>
+      </div>
+    </div></div></div>
+  <% } %>
+
+  <% if (it.project.type === 'firmware-kit') { %>
+    <div class="card"><div class="card-head"><h2>Components</h2></div><div class="card-body">
+      <%~ it.componentMatrix(it.project.components, it.projectsById) %>
+    </div></div>
+  <% } %>
+
+  <div class="card"><div class="card-head"><h2>Deploy activity</h2></div><div class="card-body flush">
+    <table class="tbl"><thead><tr><th>Status</th><th>Version</th><th>Env</th><th>Pipeline</th><th>By</th><th>When</th></tr></thead><tbody>
+      <% if (!it.deployments.length) { %><tr><td colspan="6"><div class="empty-state">No deployments yet</div></td></tr><% } %>
+      <% it.deployments.forEach(function (d) { %>
+        <tr class="row-link" onclick="location.href='/cicd/deployments/<%= d.id %>'">
+          <td><%~ it.statusBadge(d.status) %><% if (d.progress != null && d.status === 'in_progress') { %> <span class="small faint"><%= d.progress %>%</span><% } %></td>
+          <td class="mono"><%= d.version %></td><td class="mono"><%= d.env %></td>
+          <td><%= d.pipeline %></td><td><%= d.by %></td><td class="small muted"><%~ it.timeAgo(d.at) %></td>
+        </tr>
+      <% }) %>
+    </tbody></table>
+  </div></div>
+<% } else { %>
+  <div id="deploy-tile"></div>
+  <div class="card"><div class="card-head"><span class="accent-bar"></span><h2>Artifacts</h2><span class="grow"></span><span class="small faint"><%= it.artifacts.length %> artifacts · newest first</span></div>
+    <div class="card-body flush"><table class="tbl">
+      <thead><tr><th>Artifact</th><% it.ENVS.forEach(function (e) { %><th style="text-align:center;"><%= e %></th><% }) %></tr></thead>
+      <tbody>
+        <% it.artifacts.forEach(function (a) { %>
+          <tr>
+            <td><div class="mono" style="font-size:12px;"><%= a.name %></div><div class="small faint"><%= a.size %> · <%= a.kind %></div></td>
+            <% it.ENVS.forEach(function (e) { %>
+              <% var st = a.envs[e]; %>
+              <td style="text-align:center;">
+                <% if (st === 'deployed') { %><span class="badge ok">✓</span>
+                <% } else if (st === 'eligible') { %>
+                  <% if (it.canDeploy) { %>
+                    <form hx-post="/cicd/deploy" hx-target="#deploy-tile" hx-swap="innerHTML" style="display:inline;">
+                      <input type="hidden" name="projectId" value="<%= it.project.id %>" />
+                      <input type="hidden" name="version" value="<%= depVer %>" />
+                      <input type="hidden" name="env" value="<%= e %>" />
+                      <button class="btn sm" type="submit">Deploy</button>
+                    </form>
+                  <% } else { %><span class="faint">—</span><% } %>
+                <% } else { %><span class="faint" style="opacity:.35;">·</span><% } %>
+              </td>
+            <% }) %>
+          </tr>
+        <% }) %>
+      </tbody>
+    </table></div></div>
+<% } %>

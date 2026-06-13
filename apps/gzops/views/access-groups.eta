@@ -1,0 +1,15 @@
+<% layout('layout') %>
+<div class="page-head">
+  <div><h1>Access Groups</h1><div class="sub">Controlled build distribution to testers and partners</div></div>
+  <span class="grow"></span>
+  <% if (it.canEdit) { %><button class="btn btn-primary" disabled title="Coming soon">+ New group</button><% } %>
+</div>
+<div class="card"><div class="card-body flush"><table class="tbl">
+  <thead><tr><th>Group</th><th>Project</th><th>Current publish</th><th>Public page</th></tr></thead>
+  <tbody>
+    <% if (!it.groups.length) { %><tr><td colspan="4"><div class="empty-state">No access groups yet</div></td></tr><% } %>
+    <% it.groups.forEach(function (g) { %>
+      <tr><td><b><%= g.name %></b></td><td><%= g.project %></td><td class="mono"><%= g.published %></td><td><%~ it.statusBadge('published') %></td></tr>
+    <% }) %>
+  </tbody>
+</table></div></div>

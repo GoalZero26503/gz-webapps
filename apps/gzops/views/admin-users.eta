@@ -1,0 +1,4 @@
+<% layout('layout') %>
+<div class="page-head"><div><h1>Users &amp; Access</h1><div class="sub">Allow-list on top of company Google sign-in</div></div></div>
+<%~ include('partials/admin-body', it) %>
+<div class="note-banner">Future: per-project role overrides hang off each user — global role stays the default.</div>

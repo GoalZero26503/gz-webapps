@@ -5,3 +5,4 @@
 # require that app's owner. Format:
 # apps/<app-name>/ @<creator-handle> @GoalZero26503/webapp-gatekeepers
 apps/hello-fleet/ @astout @GoalZero26503/webapp-gatekeepers
+apps/gzops/ @astout @GoalZero26503/webapp-gatekeepers
