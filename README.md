@@ -89,11 +89,14 @@ Full rationale, principles, and rejected alternatives are in
   stack), with `pnpm scaffold`, path-filtered CI, and the OIDC deploy workflow
   in place. `apps/_template-spa/` holds the React escape-hatch frontend,
   pending rewiring to the unified backbone.
-- Typecheck, build, and a local browser smoke test pass; **not yet deployed**.
-- Next: the validation round (charter §8.2) — deploy `_template` to gz-dev
-  as-is, then build the **real ops dashboard** on the default stack as the
-  stress test / kitchen-sink exemplar, then rewire the SPA escape hatch.
-  Shared `packages/` get extracted after that round, not before.
+- **Deployed and validated in gz-dev** (2026-06-12): `apps/hello-fleet` is
+  live via merge-triggered CI with OIDC deploy roles, including a real
+  Google sign-in, seed-admin bootstrap, and `drizzle-kit push` against DSQL.
+  Charter §8.2(i) closed; details and cold-start data in the charter.
+- Next: §8.2(ii) — build `apps/gzops` (the real gzops portal) on the default
+  stack as the stress test / kitchen-sink exemplar (SSE live tiles first),
+  then §8.2(iii) rewire the SPA escape hatch. Shared `packages/` get
+  extracted after that round, not before.
 
 ## Repo layout
 
