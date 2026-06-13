@@ -34,7 +34,7 @@ function buildCards(progs: Program[], projects: Record<string, Project>): Progra
 
 /** Shared filtering for the dashboard overview (full page + HTMX search). */
 async function overviewData(query: { q?: string; status?: string; page?: string }, canEdit: boolean) {
-  const [allPrograms, projects] = await Promise.all([programsTable().list(), platform.listProjects()]);
+  const [allPrograms, projects] = await Promise.all([programsTable().list(), platform.listProjects({ withState: true })]);
   const projById = byId(projects);
 
   const q = (query.q ?? '').toLowerCase();
@@ -85,12 +85,13 @@ export async function pageRoutes(app: FastifyInstance): Promise<void> {
   });
 
   app.get<{ Params: { id: string } }>('/dashboard/:id', { preHandler: requireAuth }, async (request, reply) => {
-    const [program, projects, deployments] = await Promise.all([
-      programsTable().get(request.params.id),
-      platform.listProjects(),
-      platform.listDeployments(),
-    ]);
+    const program = await programsTable().get(request.params.id);
     if (!program) return reply.code(404).view('not-found.eta', { ...(await chrome(request, 'dashboard', '')), title: 'Not found', what: 'Program' });
+    const memberIds = [...new Set(program.sections.map((sec) => sec.projectId))];
+    const [projects, deployments] = await Promise.all([
+      platform.listProjects({ withState: true }),
+      platform.listDeploymentsAcross(memberIds),
+    ]);
     const projById = byId(projects);
     return reply.view('program-dashboard.eta', {
       ...(await chrome(request, 'dashboard', program.id)),
@@ -135,7 +136,7 @@ export async function pageRoutes(app: FastifyInstance): Promise<void> {
     ]);
     if (!project) return reply.code(404).view('not-found.eta', { ...(await chrome(request, 'cicd', 'projects')), title: 'Not found', what: 'Project' });
     const tab = request.query.tab === 'builds' ? 'builds' : 'deployment';
-    const projects = await platform.listProjects();
+    const projects = await platform.listProjects({ withState: true });
     const latestByEnv: Partial<Record<Env, string>> = {};
     for (const e of ENVS) {
       const d = deployments.find((x) => x.env === e);
@@ -165,7 +166,8 @@ export async function pageRoutes(app: FastifyInstance): Promise<void> {
   });
 
   app.get('/cicd/deployments', { preHandler: requireAuth }, async (request, reply) => {
-    const [deployments, projects] = await Promise.all([platform.listDeployments(), platform.listProjects()]);
+    const projects = await platform.listProjects();
+    const deployments = await platform.listDeploymentsAcross(projects.map((p) => p.id));
     return reply.view('deployments.eta', {
       ...(await chrome(request, 'cicd', 'deployments')),
       title: 'Deployments',
@@ -197,7 +199,7 @@ export async function pageRoutes(app: FastifyInstance): Promise<void> {
 }
 
 async function projectsData(query: { q?: string; type?: string }) {
-  const projects = await platform.listProjects();
+  const projects = await platform.listProjects({ withState: true });
   const q = (query.q ?? '').toLowerCase();
   const type = query.type ?? 'all';
   const list = projects.filter(

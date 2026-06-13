@@ -542,6 +542,28 @@ details.collapse[open] summary::before { transform: rotate(90deg); }
 
 @media (max-width: 1000px) {
   .shell { grid-template-columns: 1fr; }
-  .sidebar { display: none; }
   .editor-grid, .alerts, .dist-grid, .prog-grid { grid-template-columns: 1fr; }
+
+  /* Sidebar becomes a horizontal scrollable nav strip — NOT hidden, so the
+     CI/CD sub-nav (Projects/Environments/Deployments/Access Groups) stays
+     reachable on phones. */
+  .sidebar {
+    position: static; height: auto; flex-direction: row; align-items: center;
+    flex-wrap: nowrap; overflow-x: auto; gap: 4px;
+    border-right: none; border-bottom: 1px solid var(--border); padding: 8px 12px;
+  }
+  .sidebar .nav-item { white-space: nowrap; flex: 0 0 auto; border-left: none; border-bottom: 2px solid transparent; }
+  .sidebar .nav-item.active { border-left: none; border-bottom-color: var(--gz-green); }
+  .sidebar .nav-section, .sidebar .spacer, .sidebar .foot { display: none; }
+
+  /* Promotion rails + wide tables scroll horizontally INSIDE their card rather
+     than overflowing the page (the iPhone overflow bug). */
+  .card-body { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .rail, .rail.labeled, .rail-envs, .rail-envs.offset { min-width: 540px; }
+  table.tbl { min-width: 560px; }
+
+  .content { padding: 16px; }
+  .topnav { padding: 0 12px; gap: 10px; overflow-x: auto; }
+  .bell-menu { width: min(340px, calc(100vw - 16px)); right: 6px; }
+  .page-head { flex-wrap: wrap; }
 }

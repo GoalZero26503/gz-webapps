@@ -57,7 +57,7 @@ function parseEditorBody(body: Record<string, unknown>): EditorForm {
 
 /** Render the editor fragment (the live-editable column + preview pane). */
 async function renderEditor(reply: FastifyReply, program: Program, form: EditorForm): Promise<FastifyReply> {
-  const projects = await platform.listProjects();
+  const projects = await platform.listProjects({ withState: true });
   const projectsById = Object.fromEntries(projects.map((p) => [p.id, p]));
   return reply.view('partials/program-editor.eta', {
     program,
@@ -65,7 +65,7 @@ async function renderEditor(reply: FastifyReply, program: Program, form: EditorF
     projects,
     projectsById,
     facets: FACETS,
-    deployments: await platform.listDeployments(),
+    deployments: await platform.listDeploymentsAcross([...new Set(program.sections.map((sec) => sec.projectId))]),
   });
 }
 
@@ -115,7 +115,7 @@ export async function programRoutes(app: FastifyInstance): Promise<void> {
       projects,
       projectsById: Object.fromEntries(projects.map((p) => [p.id, p])),
       facets: FACETS,
-      deployments: await platform.listDeployments(),
+      deployments: await platform.listDeploymentsAcross([...new Set(program.sections.map((sec) => sec.projectId))]),
     });
   });
 

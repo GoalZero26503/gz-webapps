@@ -119,6 +119,22 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
     return reply.view('request-access.eta', { identity: pending, alreadyPending: true, submitted: true });
   });
 
+  // LOCAL-ONLY dev login — issues an admin session without Google OAuth, for local
+  // verification. Gated to isLocal (no AWS_LAMBDA_FUNCTION_NAME); never live.
+  app.get('/dev-login', async (_request, reply) => {
+    if (!getConfig().isLocal) return reply.code(404).send('not found');
+    const token = signJwt({
+      sub: 'dev-admin',
+      email: getConfig().seedAdminEmail ?? 'astout@bioliteenergy.com',
+      name: 'A. Stout (dev)',
+      role: 'admin',
+      permissions: resolvePermissions('admin'),
+    });
+    return reply
+      .setCookie(SESSION_COOKIE, token, { path: '/', httpOnly: true, secure: false, sameSite: 'lax', maxAge: 604800 })
+      .redirect('/');
+  });
+
   app.post('/auth/logout', async (_request, reply) => {
     return reply.clearCookie(SESSION_COOKIE, { path: '/' }).redirect('/login');
   });
