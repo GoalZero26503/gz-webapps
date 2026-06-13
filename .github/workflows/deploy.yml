@@ -86,9 +86,15 @@ jobs:
       - name: Apply schema migrations
         working-directory: apps/${{ matrix.app }}
         run: |
+          STACK=$(pnpm exec cdk ls -c stage="$STAGE" 2>/dev/null | head -1)
           DSQL_ENDPOINT=$(aws cloudformation describe-stacks \
-            --stack-name "$(pnpm exec cdk ls -c stage="$STAGE" 2>/dev/null | head -1)" \
-            --query "Stacks[0].Outputs[?OutputKey=='DsqlEndpoint'].OutputValue" --output text)
+            --stack-name "$STACK" \
+            --query "Stacks[0].Outputs[?OutputKey=='DsqlEndpoint'].OutputValue" \
+            --output text 2>/dev/null || true)
+          if [ -z "$DSQL_ENDPOINT" ] || [ "$DSQL_ENDPOINT" = "None" ]; then
+            echo "No DsqlEndpoint output — app has no DSQL database; skipping migrations."
+            exit 0
+          fi
           export DSQL_ENDPOINT
           DSQL_TOKEN=$(aws dsql generate-db-connect-admin-auth-token --hostname "$DSQL_ENDPOINT")
           export DSQL_TOKEN
