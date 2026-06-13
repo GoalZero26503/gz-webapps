@@ -1,0 +1,12 @@
+<% layout('layout') %>
+<div class="login-card">
+  <img src="/gz-logo-white.png" alt="Goal Zero" height="28" />
+  <h1>GZOps</h1>
+  <p class="text-secondary">Sign in with your company Google account.</p>
+  <% if (it.error) { %>
+  <div class="callout callout-error"><%= it.error %></div>
+  <% } %>
+  <a class="btn btn-primary" href="/auth/login?return_to=<%= encodeURIComponent(it.returnTo) %>">
+    Sign in with Google
+  </a>
+</div>

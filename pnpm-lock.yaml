@@ -118,6 +118,82 @@ importers:
         specifier: ^6.0.0
         version: 6.4.3(@types/node@22.19.21)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.22.4)
 
+  apps/gzops:
+    dependencies:
+      '@aws-sdk/client-ssm':
+        specifier: ^3.750.0
+        version: 3.1068.0
+      '@aws-sdk/dsql-signer':
+        specifier: ^3.750.0
+        version: 3.1068.0
+      '@fastify/cookie':
+        specifier: ^11.0.2
+        version: 11.0.2
+      '@fastify/formbody':
+        specifier: ^8.0.2
+        version: 8.0.2
+      '@fastify/static':
+        specifier: ^8.1.0
+        version: 8.3.0
+      '@fastify/view':
+        specifier: ^10.0.2
+        version: 10.0.2
+      '@fortawesome/fontawesome-free':
+        specifier: ^7.2.0
+        version: 7.2.0
+      drizzle-orm:
+        specifier: ^0.41.0
+        version: 0.41.0(@types/pg@8.20.0)(gel@2.2.0)(pg@8.21.0)
+      eta:
+        specifier: ^3.5.0
+        version: 3.5.0
+      fastify:
+        specifier: ^5.2.1
+        version: 5.8.5
+      fastify-plugin:
+        specifier: ^5.0.1
+        version: 5.1.0
+      htmx.org:
+        specifier: ^2.0.4
+        version: 2.0.10
+      lit:
+        specifier: ^3.2.1
+        version: 3.3.3
+      lucide-static:
+        specifier: ^1.18.0
+        version: 1.18.0
+      pg:
+        specifier: ^8.13.3
+        version: 8.21.0
+    devDependencies:
+      '@types/node':
+        specifier: ^22.13.0
+        version: 22.19.21
+      '@types/pg':
+        specifier: ^8.11.11
+        version: 8.20.0
+      aws-cdk:
+        specifier: ^2.1000.2
+        version: 2.1126.0
+      aws-cdk-lib:
+        specifier: ^2.180.0
+        version: 2.259.0(constructs@10.6.0)
+      constructs:
+        specifier: ^10.4.2
+        version: 10.6.0
+      drizzle-kit:
+        specifier: ^0.30.5
+        version: 0.30.6
+      esbuild:
+        specifier: ^0.25.0
+        version: 0.25.12
+      tsx:
+        specifier: ^4.19.3
+        version: 4.22.4
+      typescript:
+        specifier: ^5.7.3
+        version: 5.7.3
+
   apps/hello-fleet:
     dependencies:
       '@aws-sdk/client-ssm':
