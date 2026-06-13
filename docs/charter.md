@@ -589,10 +589,9 @@ These are not blockers but should be resolved before the template repo is finali
 - **Does BL retain a parallel Django lane?** Pending Anthony's call. As of
   2026-05-18 he's agreed to full TS for new apps, but we haven't formally retired
   the Django option for apps the BL team might choose to own end-to-end.
-- **Gatekeeper team.** Create a GitHub team (`@goalzero26503/webapp-gatekeepers`?)
-  so the root CODEOWNERS entry references a team, not individual handles, and
-  adding/removing a gatekeeper is a team-membership change rather than a
-  CODEOWNERS edit.
+- ~~**Gatekeeper team.**~~ **Resolved 2026-06-12.**
+  `@goalzero26503/webapp-gatekeepers` exists with repo write and is the root
+  CODEOWNERS entry. Anthony's membership pending (handle to be added by Alex).
 - **Per-app OIDC scoping mechanism.** Two viable shapes — (a) GitHub
   Environments per app, with the deploy job declaring `environment:
   <app-name>` and each AWS role's trust policy keyed on that claim, or
@@ -636,18 +635,26 @@ These are not blockers but should be resolved before the template repo is finali
    data) can't share one prototype, so the round is a small portfolio,
    risk-ordered. Validation apps live in `apps/` like any other app and double
    as the permanent reference apps the monorepo model depends on.
-   1. **Deploy the template to gz-dev.** Mechanically: `pnpm scaffold
-      hello-fleet ...` and deploy *that* — deploy.yml deliberately skips
-      `_`-prefixed skeletons, and scaffolding first exercises the scaffold
-      path for real. Retires the biggest unknowns in one shot: Docker build
-      in CI, OIDC deploy-role wiring, image size and real cold starts, DSQL
-      provisioning + IAM-token auth + `drizzle-kit push` compatibility,
-      OAuth on a real CloudFront domain, and measured idle cost. Blocked on
-      the per-app gatekeeper setup (deploy role, SSM params, Google OAuth
-      client — `docs/setup.md`), which itself is blocked on the repo rename
-      to `gz-webapps` (OIDC trust policies are scoped to
-      `repo:GoalZero26503/gz-webapps`; roles wired under the old name won't
-      match).
+   1. ~~**Deploy the template to gz-dev.**~~ **Done 2026-06-12.**
+      `apps/hello-fleet` (scaffolded via `pnpm scaffold`) is live at
+      `https://d3hh9512wgtw48.cloudfront.net` via merge-triggered CI deploy
+      with the OIDC-scoped role, validated end-to-end including a real
+      Google sign-in and seed-admin bootstrap. Confirmed working:
+      `drizzle-kit push` against DSQL with IAM-token auth (the
+      least-trusted claim in the stack), the full
+      CloudFront → Function URL → LWA → Fastify path, and the auth flow.
+      Found and fixed in the process: missing root `.dockerignore`
+      (recursive `cdk.out` staging), unscaffolded placeholders breaking
+      synth, arm64 cross-build (`--platform=$BUILDPLATFORM`; runtime stage
+      must stay COPY-only — a native dep forces QEMU or an arm64 runner),
+      `tsconfig.base.json` missing from the image, pnpm v10 `deploy
+      --legacy`, and the Google Workspace tenant being `bioliteenergy.com`
+      only (`@goalzero.com` is an alias that can never authenticate — all
+      sign-in identities are `@bioliteenergy.com`). Cold-start data:
+      first-ever invoke 9.8 s; post-update cold start ~2.5–2.7 s
+      (CloudFront + boot + SSM fetches); warm ~0.3 s. A true post-idle
+      cold start is still to be measured against the §3.1 claim, and
+      there's known headroom (lazy Google-cred fetch, smaller image).
    2. **`apps/gzops` — the gzops portal rebuild, built on the default
       stack.** (Merged 2026-06-12 with the 2601-gzops-v2 plan: this IS the
       "real ops dashboard" — one app, not two. Screen spec and phased plan:
@@ -694,9 +701,14 @@ These are not blockers but should be resolved before the template repo is finali
 6. ~~Author the conversational scaffolding flow (§3.3 + §4.3).~~ **Done
    2026-06-12**: `pnpm scaffold` (`scripts/scaffold.mjs`) + the coaching doc
    `.claude/commands/gz:webapp:new-app.md`.
-7. Set up branch protection on `main` and create the
-   `@goalzero26503/webapp-gatekeepers` team for the root CODEOWNERS entry
-   (the CODEOWNERS file already references it).
+7. ~~Set up branch protection on `main` and create the gatekeeper team.~~
+   **Done 2026-06-12.** Repo renamed `GoalZero26503/gz-webapps`;
+   `@goalzero26503/webapp-gatekeepers` team created with repo write (Alex
+   maintainer; **Anthony still to be added**); branch protection per §4.6:
+   PR required, 1 approval + CODEOWNERS, conversation resolution, no force
+   pushes/deletions. Not yet: pinned required status-check contexts (the
+   matrix check names are dynamic) and `enforce_admins` (admins can bypass —
+   accepted while the gatekeeper pool is one person).
 8. ~~Build `.github/workflows/`.~~ **Done 2026-06-12**: `ci.yml`
    (path-filtered typecheck/build/synth per changed app; `cdk diff` PR
    comment still TODO pending the per-app OIDC read roles) and `deploy.yml`
