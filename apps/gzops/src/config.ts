@@ -3,16 +3,21 @@ import { SSMClient, GetParameterCommand } from '@aws-sdk/client-ssm';
 export interface AppConfig {
   appName: string;
   stage: string;
-  /** Canonical origin for OAuth redirects, e.g. https://myapp.goalzeroapp.com */
+  /** Canonical origin for OAuth redirects, e.g. https://gzops2-dev.goalzeroapp.com */
   baseUrl: string;
   allowedDomains: string[];
   seedAdminEmail: string | null;
   jwtSecret: string;
   googleClientId: string;
   googleClientSecret: string;
-  /** DSQL cluster endpoint host. Empty when DATABASE_URL is set (local dev). */
-  dsqlEndpoint: string;
-  databaseUrl: string | null;
+  /** DynamoDB table name prefix, e.g. gzweb-dev-gzops- (KV escape hatch, charter §3.5). */
+  tablePrefix: string;
+  /** 'dynamo' in AWS; 'memory' for local dev (seeded demo data, no AWS writes). */
+  storeMode: 'dynamo' | 'memory';
+  /** gzops-platform API origin for the server-side BFF client (SigV4). */
+  platformBaseUrl: string;
+  /** 'live' signs real requests; 'fake' serves seeded demo data for local dev. */
+  platformMode: 'live' | 'fake';
   isLocal: boolean;
 }
 
@@ -61,8 +66,10 @@ export async function loadConfig(): Promise<AppConfig> {
     jwtSecret,
     googleClientId,
     googleClientSecret,
-    dsqlEndpoint: process.env.DSQL_ENDPOINT || '',
-    databaseUrl: process.env.DATABASE_URL || null,
+    tablePrefix: process.env.TABLE_PREFIX || `gzweb-${stage}-${appName}-`,
+    storeMode: (process.env.STORE_MODE as 'dynamo' | 'memory') || (isLocal ? 'memory' : 'dynamo'),
+    platformBaseUrl: process.env.PLATFORM_BASE_URL || 'https://gzops-api-dev.goalzeroapp.com',
+    platformMode: (process.env.PLATFORM_MODE as 'live' | 'fake') || (isLocal ? 'fake' : 'live'),
     isLocal,
   };
   return config;
