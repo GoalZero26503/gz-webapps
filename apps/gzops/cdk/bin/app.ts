@@ -8,11 +8,11 @@ const account = (app.node.tryGetContext('account') as string) || '336507940372';
 const seedAdminEmail = (app.node.tryGetContext('seedAdminEmail') as string) || 'astout@bioliteenergy.com';
 
 // Custom domain: gzops2-dev.goalzeroapp.com (dev) / gzops2.goalzeroapp.com (prod).
-// Pass -c domainName='' to deploy without one (first bootstrap deploy).
+// The cert + alias records are only created when -c hostedZoneId=Z... is passed
+// (by the deploy workflow), so a credential-free `cdk synth` needs no lookup.
 const hostedZoneName = (app.node.tryGetContext('hostedZoneName') as string) || 'goalzeroapp.com';
-const domainDefault = stage === 'prod' ? 'gzops2.goalzeroapp.com' : `gzops2-${stage}.goalzeroapp.com`;
-const domainCtx = app.node.tryGetContext('domainName') as string | undefined;
-const domainName = domainCtx === '' ? undefined : (domainCtx ?? domainDefault);
+const hostedZoneId = app.node.tryGetContext('hostedZoneId') as string | undefined;
+const domainName = (app.node.tryGetContext('domainName') as string) || (stage === 'prod' ? 'gzops2.goalzeroapp.com' : `gzops2-${stage}.goalzeroapp.com`);
 
 const platformBaseUrl =
   (app.node.tryGetContext('platformBaseUrl') as string) ||
@@ -26,4 +26,5 @@ new WebappStack(app, `GzWeb-Gzops-${stage}`, {
   platformBaseUrl,
   domainName,
   hostedZoneName,
+  hostedZoneId,
 });
