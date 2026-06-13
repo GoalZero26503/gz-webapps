@@ -118,11 +118,6 @@ h2 {
   gap: 0.75rem;
 }
 
-.topbar-email {
-  color: var(--text-tertiary);
-  font-size: 0.85rem;
-}
-
 /* ── Components ─────────────────────────────────────── */
 .btn {
   font-family: var(--font-sans);
@@ -359,8 +354,39 @@ select:focus {
 .notif .n-t { font-size: 13px; }
 .notif .n-at { font-size: 11px; color: var(--text-tertiary); margin-top: 2px; }
 
-.user-menu { display: flex; align-items: center; gap: 10px; }
+/* Account dropdown (condensed to an icon at every width) */
+.user-menu { position: relative; }
+.user-menu > summary { list-style: none; cursor: pointer; }
+.user-menu > summary::-webkit-details-marker { display: none; }
+.user-btn {
+  display: flex; align-items: center; justify-content: center; background: none; border: none;
+  cursor: pointer; font-size: 21px; padding: 4px; border-radius: var(--radius-sm); color: var(--text-secondary);
+}
+.user-btn:hover { background: var(--bg-elevated); color: var(--text-primary); }
+.user-drop {
+  position: absolute; right: 0; top: 42px; width: 240px; background: var(--bg-card);
+  border: 1px solid var(--border); border-radius: var(--radius-lg);
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.5); z-index: 50; overflow: hidden; padding: 12px;
+}
+.user-drop .ud-id { padding: 2px 2px 12px; border-bottom: 1px solid var(--border-subtle); margin-bottom: 12px; }
+.user-drop .ud-name { font-weight: 600; font-size: 14px; color: var(--text-primary); }
+.user-drop .ud-email { font-size: 12px; color: var(--text-secondary); margin-top: 2px; word-break: break-all; }
+.user-drop .ud-role {
+  display: inline-block; margin-top: 8px; font-size: 10px; font-weight: 700; letter-spacing: 0.06em;
+  text-transform: uppercase; padding: 2px 8px; border-radius: 999px;
+  background: var(--gz-green-dim); color: var(--gz-green);
+}
 .btn.sm { padding: 4px 10px; font-size: 12px; }
+
+/* Hamburger + off-canvas drawer plumbing (active only ≤1000px; see media query) */
+.nav-burger {
+  display: none; align-items: center; justify-content: center; cursor: pointer;
+  font-size: 20px; padding: 4px 6px; border-radius: var(--radius-sm); color: var(--text-secondary);
+  margin-left: -4px;
+}
+.nav-burger:hover { background: var(--bg-elevated); color: var(--text-primary); }
+.nav-scrim { display: none; }
+.drawer-areas { display: none; }
 
 /* ── Shell: sidebar + main ──────────────────────────────── */
 .shell { display: grid; grid-template-columns: 232px 1fr; min-height: calc(100vh - 52px); }
@@ -532,8 +558,10 @@ details.collapse[open] summary::before { transform: rotate(90deg); }
 /* ── Gate (login / 403 request-access) ──────────────────── */
 .gate { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 24px; }
 .gate-card { width: 420px; max-width: 100%; background: var(--bg-card); border: 1px solid var(--border); border-radius: 14px; padding: 34px 36px; }
-.gate-card .logo { font-family: var(--font-mono); font-weight: 600; font-size: 20px; }
+.gate-card .logo { font-family: var(--font-mono); font-weight: 600; font-size: 22px; }
 .gate-card .logo .cursor { color: var(--gz-green); }
+.gate-card-center { text-align: center; }
+.gate-card-center .logo { margin-bottom: 4px; }
 .gate-card h1 { font-size: 19px; margin: 14px 0 6px; }
 .gate-card p { color: var(--text-secondary); font-size: 13.5px; margin-bottom: 12px; }
 .gate-card .mono { color: var(--text-primary); }
@@ -541,20 +569,39 @@ details.collapse[open] summary::before { transform: rotate(90deg); }
 .gate-actions { display: flex; gap: 10px; margin-top: 12px; }
 
 @media (max-width: 1000px) {
-  .shell { grid-template-columns: 1fr; }
   .editor-grid, .alerts, .dist-grid, .prog-grid { grid-template-columns: 1fr; }
 
-  /* Sidebar becomes a horizontal scrollable nav strip — NOT hidden, so the
-     CI/CD sub-nav (Projects/Environments/Deployments/Access Groups) stays
-     reachable on phones. */
+  /* Topnav declutters: show the hamburger, drop the inline area tabs (they move
+     into the drawer), keep just brand + bell + account icon. */
+  .topnav { padding: 0 12px; gap: 12px; }
+  .nav-burger { display: flex; }
+  .topnav .area-tabs { display: none; }
+
+  /* Single-column page; the sidebar leaves the grid and becomes an off-canvas
+     drawer that slides in over the content when the hamburger is toggled. */
+  .shell { display: block; }
   .sidebar {
-    position: static; height: auto; flex-direction: row; align-items: center;
-    flex-wrap: nowrap; overflow-x: auto; gap: 4px;
-    border-right: none; border-bottom: 1px solid var(--border); padding: 8px 12px;
+    position: fixed; top: 52px; left: 0; bottom: 0; width: 272px; max-width: 84vw;
+    height: calc(100vh - 52px); z-index: 60; padding: 12px;
+    border-right: 1px solid var(--border); box-shadow: 4px 0 24px rgba(0, 0, 0, 0.5);
+    transform: translateX(-100%); transition: transform 0.22s ease;
+    flex-direction: column; overflow-y: auto;
   }
-  .sidebar .nav-item { white-space: nowrap; flex: 0 0 auto; border-left: none; border-bottom: 2px solid transparent; }
-  .sidebar .nav-item.active { border-left: none; border-bottom-color: var(--gz-green); }
-  .sidebar .nav-section, .sidebar .spacer, .sidebar .foot { display: none; }
+  .nav-toggle-cb:checked ~ .shell .sidebar { transform: translateX(0); }
+
+  /* Dimmed scrim behind the open drawer; tapping it (it's a <label>) closes. */
+  .nav-scrim {
+    display: block; position: fixed; inset: 52px 0 0 0; z-index: 55;
+    background: rgba(0, 0, 0, 0.55); opacity: 0; pointer-events: none;
+    transition: opacity 0.22s ease;
+  }
+  .nav-toggle-cb:checked ~ .shell .nav-scrim { opacity: 1; pointer-events: auto; }
+
+  /* Area switcher (Dashboard / CI/CD / Admin) lives at the top of the drawer. */
+  .drawer-areas { display: flex; flex-direction: column; gap: 2px; padding-bottom: 8px; margin-bottom: 8px; border-bottom: 1px solid var(--border-subtle); }
+  .darea { padding: 9px 10px; border-radius: var(--radius-sm); color: var(--text-secondary); font-weight: 600; font-size: 13.5px; }
+  .darea:hover { background: var(--bg-elevated); color: var(--text-primary); }
+  .darea.active { background: var(--gz-green-dim); color: var(--text-primary); border-left: 3px solid var(--gz-green); padding-left: 7px; }
 
   /* Promotion rails + wide tables scroll horizontally INSIDE their card rather
      than overflowing the page (the iPhone overflow bug). */
@@ -563,7 +610,6 @@ details.collapse[open] summary::before { transform: rotate(90deg); }
   table.tbl { min-width: 560px; }
 
   .content { padding: 16px; }
-  .topnav { padding: 0 12px; gap: 10px; overflow-x: auto; }
   .bell-menu { width: min(340px, calc(100vw - 16px)); right: 6px; }
   .page-head { flex-wrap: wrap; }
 }
