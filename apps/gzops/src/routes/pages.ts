@@ -34,7 +34,11 @@ function buildCards(progs: Program[], projects: Record<string, Project>): Progra
 
 /** Shared filtering for the dashboard overview (full page + HTMX search). */
 async function overviewData(query: { q?: string; status?: string; page?: string }, canEdit: boolean) {
-  const [allPrograms, projects] = await Promise.all([programsTable().list(), platform.listProjects({ withState: true })]);
+  const allPrograms = await programsTable().list();
+  // Only the projects referenced by programs appear on the overview — enrich
+  // just those (live env-state) instead of fanning out for every platform project.
+  const memberIds = [...new Set(allPrograms.flatMap((pr) => pr.sections.map((s) => s.projectId)))];
+  const projects = await platform.getProjectsByIds(memberIds, { withState: true });
   const projById = byId(projects);
 
   const q = (query.q ?? '').toLowerCase();
@@ -89,7 +93,7 @@ export async function pageRoutes(app: FastifyInstance): Promise<void> {
     if (!program) return reply.code(404).view('not-found.eta', { ...(await chrome(request, 'dashboard', '')), title: 'Not found', what: 'Program' });
     const memberIds = [...new Set(program.sections.map((sec) => sec.projectId))];
     const [projects, deployments] = await Promise.all([
-      platform.listProjects({ withState: true }),
+      platform.getProjectsByIds(memberIds, { withState: true }),
       platform.listDeploymentsAcross(memberIds),
     ]);
     const projById = byId(projects);
@@ -136,7 +140,9 @@ export async function pageRoutes(app: FastifyInstance): Promise<void> {
     ]);
     if (!project) return reply.code(404).view('not-found.eta', { ...(await chrome(request, 'cicd', 'projects')), title: 'Not found', what: 'Project' });
     const tab = request.query.tab === 'builds' ? 'builds' : 'deployment';
-    const projects = await platform.listProjects({ withState: true });
+    // The component matrix only references this project's own (already-enriched)
+    // state; no need to fan out env-state for every platform project.
+    const projects = [project];
     const latestByEnv: Partial<Record<Env, string>> = {};
     for (const e of ENVS) {
       const d = deployments.find((x) => x.env === e);

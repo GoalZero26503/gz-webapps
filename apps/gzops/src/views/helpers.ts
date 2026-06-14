@@ -61,14 +61,14 @@ export function envHeader(offset = false): string {
 }
 
 export function rail(railData: Rail, withHeader = false, navFor?: NavFor): string {
-  return `${withHeader ? envHeader(false) : ''}<div class="rail">${ENVS.map((e) => cell(railData[e], navFor ? navFor(e) : null)).join('')}</div>`;
+  return `<div class="rail-scroll">${withHeader ? envHeader(false) : ''}<div class="rail">${ENVS.map((e) => cell(railData[e], navFor ? navFor(e) : null)).join('')}</div></div>`;
 }
 
 export function channelRail(channels: Record<string, Rail>, navFor?: NavFor): string {
   const rows = Object.entries(channels)
     .map(([name, envs]) => `<span class="env-label">${esc(name)}</span>${ENVS.map((e) => cell(envs[e], navFor ? navFor(e) : null)).join('')}`)
     .join('');
-  return `${envHeader(true)}<div class="rail labeled">${rows}</div>`;
+  return `<div class="rail-scroll">${envHeader(true)}<div class="rail labeled">${rows}</div></div>`;
 }
 
 export function componentMatrix(components: Project['components'], projectsById: ProjectsById, withHeader = true): string {
@@ -83,7 +83,7 @@ export function componentMatrix(components: Project['components'], projectsById:
       }).join('')}`;
     })
     .join('');
-  return `${withHeader ? envHeader(true) : ''}<div class="rail labeled compact">${rows}</div>`;
+  return `<div class="rail-scroll">${withHeader ? envHeader(true) : ''}<div class="rail labeled compact">${rows}</div></div>`;
 }
 
 export interface ProgramSectionInput {

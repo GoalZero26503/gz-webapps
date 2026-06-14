@@ -603,9 +603,12 @@ details.collapse[open] summary::before { transform: rotate(90deg); }
   .darea:hover { background: var(--bg-elevated); color: var(--text-primary); }
   .darea.active { background: var(--gz-green-dim); color: var(--text-primary); border-left: 3px solid var(--gz-green); padding-left: 7px; }
 
-  /* Promotion rails + wide tables scroll horizontally INSIDE their card rather
-     than overflowing the page (the iPhone overflow bug). */
-  .card-body { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  /* Only the wide bits scroll horizontally — not the whole section. The
+     promotion rail (header + cells) scrolls as one unit inside .rail-scroll;
+     the cohort rows and everything else below it stay put. Table-only cards
+     (.card-body.flush) scroll wholesale since the table is their sole content. */
+  .rail-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .card-body.flush { overflow-x: auto; -webkit-overflow-scrolling: touch; }
   .rail, .rail.labeled, .rail-envs, .rail-envs.offset { min-width: 540px; }
   table.tbl { min-width: 560px; }
 
