@@ -169,6 +169,10 @@ export class WebappStack extends cdk.Stack {
       additionalBehaviors: {
         '/assets/*': staticBehavior,
         '/vendor/*': staticBehavior,
+        // Root-level static assets — without these they fall under the default
+        // (CACHING_DISABLED) behavior and hit the Lambda on every page load.
+        '/styles.css': staticBehavior,
+        '/favicon.ico': staticBehavior,
       },
       ...(domainName && certificate ? { domainNames: [domainName], certificate } : {}),
     });

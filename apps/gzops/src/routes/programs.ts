@@ -57,15 +57,23 @@ function parseEditorBody(body: Record<string, unknown>): EditorForm {
 
 /** Render the editor fragment (the live-editable column + preview pane). */
 async function renderEditor(reply: FastifyReply, program: Program, form: EditorForm): Promise<FastifyReply> {
-  const projects = await platform.listProjects({ withState: true });
+  const memberIds = [...new Set(form.sections.map((sec) => sec.projectId))];
+  // All projects (names) feed the section picker; only previewed members need
+  // live env-state, so enrich just those rather than fanning out for all.
+  const [projects, enriched, deployments] = await Promise.all([
+    platform.listProjects(),
+    platform.getProjectsByIds(memberIds, { withState: true }),
+    platform.listDeploymentsAcross(memberIds),
+  ]);
   const projectsById = Object.fromEntries(projects.map((p) => [p.id, p]));
+  for (const p of enriched) projectsById[p.id] = p; // member projects carry rail/state
   return reply.view('partials/program-editor.eta', {
     program,
     form,
     projects,
     projectsById,
     facets: FACETS,
-    deployments: await platform.listDeploymentsAcross([...new Set(program.sections.map((sec) => sec.projectId))]),
+    deployments,
   });
 }
 

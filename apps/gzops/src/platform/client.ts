@@ -15,6 +15,18 @@
 import { getConfig } from '../config.js';
 import { FIXTURE_PROJECTS, fixtureDeployments } from './fixtures.js';
 import { signRequest } from './sigv4.js';
+
+// Keep platform-API connections warm across requests. Without this, fanning out
+// env-state reads pays a fresh TLS handshake per call (measured ~1s/call cold vs
+// ~0.4s warm); a pooled keep-alive dispatcher lets a warm Lambda reuse sockets.
+void (async () => {
+  try {
+    const { setGlobalDispatcher, Agent } = await import('undici');
+    setGlobalDispatcher(new Agent({ keepAliveTimeout: 30_000, keepAliveMaxTimeout: 60_000, connections: 128 }));
+  } catch {
+    /* undici not resolvable — Node's built-in fetch keep-alive defaults apply */
+  }
+})();
 import {
   ENVS,
   type Artifact,
@@ -44,6 +56,12 @@ class PlatformClient {
   private fakeDeployments: Deployment[] | null = null;
   private readonly sims = new Map<string, SimMeta>();
 
+  /** Short-TTL cache for live GETs, keyed by path. Dedupes the per-request
+   *  fan-out (e.g. chrome + page both list projects) and makes navigation within
+   *  the warm window near-instant. Writes (createDeployment) clear it. */
+  private readonly cache = new Map<string, { at: number; data: unknown }>();
+  private static readonly CACHE_TTL_MS = 20_000;
+
   private get isFake(): boolean {
     return getConfig().platformMode === 'fake';
   }
@@ -54,6 +72,19 @@ class PlatformClient {
     const projects = (await this.getJson<{ projects?: unknown[] }>('/projects')).projects?.map(normalizeProject) ?? [];
     if (!opts.withState) return projects;
     return Promise.all(projects.map((p) => this.enrich(p)));
+  }
+
+  /**
+   * Fetch a specific subset of projects, reusing the cached `/projects` list and
+   * enriching only those with live env-state. Program-scoped views (overview,
+   * program dashboard) call this so we don't fan out `/environments` for all ~20
+   * platform projects when we only render a handful.
+   */
+  async getProjectsByIds(ids: string[], opts: { withState?: boolean } = {}): Promise<Project[]> {
+    const want = new Set(ids);
+    const subset = (await this.listProjects()).filter((p) => want.has(p.id));
+    if (this.isFake || !opts.withState) return subset;
+    return Promise.all(subset.map((p) => this.enrich(p)));
   }
 
   /** Populate rail / channels / cohorts from the project's live env-state. */
@@ -188,11 +219,17 @@ class PlatformClient {
 
   // ── Live transport ────────────────────────────────────────
   private async getJson<T>(path: string): Promise<T> {
-    return this.fetchSigned<T>('GET', path);
+    const hit = this.cache.get(path);
+    if (hit && Date.now() - hit.at < PlatformClient.CACHE_TTL_MS) return hit.data as T;
+    const data = await this.fetchSigned<T>('GET', path);
+    this.cache.set(path, { at: Date.now(), data });
+    return data;
   }
 
   private async postJson<T>(path: string, body: unknown): Promise<T> {
-    return this.fetchSigned<T>('POST', path, JSON.stringify(body));
+    const out = await this.fetchSigned<T>('POST', path, JSON.stringify(body));
+    this.cache.clear(); // a write (e.g. new deploy) invalidates cached reads
+    return out;
   }
 
   private async fetchSigned<T>(method: string, path: string, body = ''): Promise<T> {

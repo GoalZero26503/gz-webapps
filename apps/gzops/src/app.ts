@@ -1,5 +1,6 @@
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import fastifyCompress from '@fastify/compress';
 import fastifyCookie from '@fastify/cookie';
 import fastifyFormbody from '@fastify/formbody';
 import fastifyStatic from '@fastify/static';
@@ -24,6 +25,11 @@ export function buildApp(): FastifyInstance {
     trustProxy: true, // behind CloudFront + Lambda Web Adapter
   });
 
+  // Compress responses at the origin (HTML + JS/CSS). CloudFront caches the
+  // compressed static responses; for the dynamic HTML (no CDN cache) this is the
+  // only place compression can happen. Cuts the 95KB vendor CSS et al. ~5–8×.
+  app.register(fastifyCompress, { global: true, encodings: ['br', 'gzip'], threshold: 1024 });
+
   app.register(fastifyCookie);
   app.register(fastifyFormbody);
   app.register(fastifyView, {
@@ -34,14 +40,20 @@ export function buildApp(): FastifyInstance {
     // default context and every template can call them as `<%~ it.rail(...) %>`.
     defaultContext: { appName: getConfig().appName, stage: getConfig().stage, ...viewHelpers },
   });
-  // no-cache + ETag: bundles aren't content-hashed, so clients must
-  // revalidate (cheap 304s) rather than serve stale JS after a deploy
+  // Cache static assets so they stop revalidating on every page load (the old
+  // max-age=0 forced a CloudFront→Lambda round-trip per asset per navigation).
+  // Bundles aren't content-hashed, so app-owned assets (app.js, styles.css) use
+  // a short TTL — revalidation-free within a session, refreshed soon after a
+  // deploy — while versioned third-party libs under /vendor cache for a day.
   app.register(fastifyStatic, {
     root: path.join(rootDir, 'public'),
     prefix: '/',
     wildcard: false,
-    cacheControl: true,
-    maxAge: 0,
+    cacheControl: false,
+    setHeaders(res, filePath) {
+      const maxAge = filePath.includes(`${path.sep}vendor${path.sep}`) ? 86_400 : 600;
+      res.setHeader('cache-control', `public, max-age=${maxAge}`);
+    },
   });
 
   app.register(authPlugin);
