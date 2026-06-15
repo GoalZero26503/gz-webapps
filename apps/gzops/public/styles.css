@@ -317,7 +317,7 @@ select:focus {
   position: sticky; top: 0; z-index: 40;
 }
 .topnav .brand { font-family: var(--font-mono); font-weight: 600; font-size: 16px; color: var(--text-primary); }
-.topnav .brand .cursor { color: var(--gz-green); }
+.topnav .brand .mark, .topnav .brand .cursor { color: var(--gz-green); }
 .area-tabs { display: flex; align-items: center; gap: 4px; height: 100%; }
 .area-tabs .tab {
   display: flex; align-items: center; height: 100%; padding: 0 16px;
@@ -559,7 +559,7 @@ details.collapse[open] summary::before { transform: rotate(90deg); }
 .gate { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 24px; }
 .gate-card { width: 420px; max-width: 100%; background: var(--bg-card); border: 1px solid var(--border); border-radius: 14px; padding: 34px 36px; }
 .gate-card .logo { font-family: var(--font-mono); font-weight: 600; font-size: 22px; }
-.gate-card .logo .cursor { color: var(--gz-green); }
+.gate-card .logo .mark, .gate-card .logo .cursor { color: var(--gz-green); }
 .gate-card-center { text-align: center; }
 .gate-card-center .logo { margin-bottom: 4px; }
 .gate-card h1 { font-size: 19px; margin: 14px 0 6px; }
