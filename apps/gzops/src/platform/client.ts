@@ -60,6 +60,9 @@ export interface DeployConfigInput {
   kit?: KitDeployConfig;
   health_check?: HealthCheckConfig;
   note?: string;
+  /** Acting user — the BFF authorizes via SigV4, so it attributes the author. */
+  author?: string;
+  source?: DeployConfig['source'];
 }
 
 interface SimMeta {

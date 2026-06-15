@@ -199,6 +199,8 @@ export async function pageRoutes(app: FastifyInstance): Promise<void> {
         kit: b.kit,
         health_check: b.health_check,
         note: b.note,
+        author: request.user!.email, // BFF did the deploy-config:write RBAC; attribute the user
+        source: 'webapp',
       });
       return reply.send({ ok: true, version: saved.version });
     },
