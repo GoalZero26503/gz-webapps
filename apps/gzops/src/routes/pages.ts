@@ -12,6 +12,17 @@ const PAGE_SIZE = 6;
 const byId = (projects: Project[]): Record<string, Project> =>
   Object.fromEntries(projects.map((p) => [p.id, p]));
 
+/** Compact a /health gzopsHash for a tile: short hash, or the date when it's a
+ *  `local-<unix>` fallback (no gzops hash was computed for that deploy). */
+function formatHash(h?: string): string {
+  if (!h) return '';
+  if (h.startsWith('local-')) {
+    const ts = Number(h.slice(6));
+    return Number.isFinite(ts) && ts > 0 ? `ts ${new Date(ts * 1000).toISOString().slice(0, 10)}` : 'no hash';
+  }
+  return h.slice(0, 8);
+}
+
 interface ProgramCard {
   id: string;
   name: string;
@@ -169,6 +180,30 @@ export async function pageRoutes(app: FastifyInstance): Promise<void> {
       env,
       rows: await platform.listEnvironment(env),
     });
+  });
+
+  // Lazy health panel for a cloud project — probes each env's /health server-side
+  // (loaded via HTMX so the page paints first). Falls back to platform deploy
+  // state when the project declares no health_check.
+  app.get<{ Params: { projectId: string } }>('/cicd/health/:projectId', { preHandler: requireAuth }, async (request, reply) => {
+    const id = request.params.projectId;
+    const health = await platform.projectHealth(id);
+    if (health) {
+      const cells = health.map((h) => ({
+        env: h.env,
+        ok: h.ok,
+        v: h.ok ? h.version ?? '—' : '—',
+        meta: h.ok ? formatHash(h.gzopsHash) : h.error ?? `HTTP ${h.status}`,
+      }));
+      const down = health.filter((h) => !h.ok).map((h) => h.env);
+      return reply.view('partials/health-panel.eta', { cells, configured: true, healthy: down.length === 0, down });
+    }
+    const p = await platform.getProject(id);
+    const cells = ENVS.map((e) => {
+      const c = p?.rail?.[e];
+      return { env: e, ok: !!c, v: c?.v ?? '—', meta: c?.age ?? '' };
+    });
+    return reply.view('partials/health-panel.eta', { cells, configured: false, healthy: true, down: [] });
   });
 
   app.get('/cicd/deployments', { preHandler: requireAuth }, async (request, reply) => {

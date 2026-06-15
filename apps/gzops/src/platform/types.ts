@@ -94,6 +94,34 @@ export interface EnvProjectState {
   cell: RailCell | null;
 }
 
+/**
+ * Per-project live health-check config, declared in the repo's gzops/config.json
+ * `project.health_check` and synced to the platform (config_snapshot). The
+ * webapp probes each env's `{url}/health` to surface real running state.
+ */
+export interface HealthCheckConfig {
+  /** URL with an `{env}` placeholder, e.g. https://yeti-{env}.goalzeroapp.com/health */
+  url: string;
+  /** Which environments to probe (defaults to all ENVS). */
+  environments?: string[];
+  /** Per-env full URLs that don't fit the template. */
+  overrides?: Record<string, string>;
+}
+
+/** Result of probing one environment's `/health` endpoint. */
+export interface EnvHealth {
+  env: Env;
+  /** Reachable and 200. */
+  ok: boolean;
+  /** HTTP status (0 = network error / timeout). */
+  status: number;
+  version?: string;
+  gitSha?: string;
+  /** Real gzops content hash, or a `local-<ts>` fallback when not computed. */
+  gzopsHash?: string;
+  error?: string;
+}
+
 /** An artifact row in the per-project build matrix. */
 export interface Artifact {
   name: string;

@@ -15,7 +15,7 @@
   <input type="checkbox" id="navToggle" class="nav-toggle-cb" hidden />
   <header class="topnav">
     <label for="navToggle" class="nav-burger" aria-label="Open navigation"><i class="icon-menu"></i></label>
-    <a class="brand" href="/">gzops<span class="cursor">_</span></a>
+    <a class="brand" href="/"><span class="mark">gz</span>ops<span class="cursor">_</span></a>
     <% if (it.stage !== 'prod') { %><span class="badge badge-stage"><%= it.stage %></span><% } %>
     <nav class="area-tabs">
       <% it.areaTabs.forEach(function (t) { %>

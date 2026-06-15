@@ -1,0 +1,22 @@
+<div class="health-lazy" data-health>
+  <div class="rail-scroll">
+    <div class="rail-envs"><% it.cells.forEach(function (c) { %><span class="label-caps"><%= c.env %></span><% }) %></div>
+    <div class="rail">
+      <% it.cells.forEach(function (c) { %>
+        <div class="cell <%= c.ok ? '' : 'err' %>">
+          <div class="v"><%= c.v %></div>
+          <div class="meta"><% if (c.meta) { %><span class="faint"><%= c.meta %></span> · <% } %><span class="dot <%= c.ok ? 'ok' : 'err' %>"></span></div>
+        </div>
+      <% }) %>
+    </div>
+  </div>
+  <div style="margin-top:10px;">
+    <% if (!it.configured) { %>
+      <span class="badge"><span class="dot"></span> deploy state · no health check configured</span>
+    <% } else if (it.healthy) { %>
+      <span class="badge ok"><span class="dot ok"></span> Healthy · live</span>
+    <% } else { %>
+      <span class="badge err"><span class="dot err"></span> <%= it.down.length %> degraded: <%= it.down.join(', ') %></span>
+    <% } %>
+  </div>
+</div>

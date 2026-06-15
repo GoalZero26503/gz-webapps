@@ -1,6 +1,6 @@
 <% layout('layout') %>
 <div class="gate-card gate-card-center">
-  <div class="logo">gzops<span class="cursor">_</span></div>
+  <div class="logo"><span class="mark">gz</span>ops<span class="cursor">_</span></div>
   <h1>Release operations portal</h1>
   <p>Sign in with your company Google account to continue.</p>
   <% if (it.error) { %>
