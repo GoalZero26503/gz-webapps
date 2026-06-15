@@ -91,6 +91,13 @@
     </table></div></div>
 <% } else if (it.tab === 'config') { %>
   <% var dc = it.deployConfig; %>
+  <% if (it.editing) { %>
+  <div class="page-head" style="margin-bottom:14px;">
+    <div style="display:flex;align-items:center;gap:8px;"><h1 style="font-size:19px;margin:0;">Edit deploy config</h1>
+      <span class="badge info"><%= dc.version ? ('from v' + dc.version) : 'new' %></span></div>
+  </div>
+  <gz-deploy-config-editor config="<%= it.deployConfigJson %>" project-id="<%= it.project.id %>" project-type="<%= it.project.type %>" save-url="/cicd/projects/<%= it.project.id %>/config" cancel-url="/cicd/projects/<%= it.project.id %>?tab=config" envs="<%= it.ENVS.join(',') %>"></gz-deploy-config-editor>
+  <% } else { %>
   <div class="page-head" style="margin-bottom:14px;">
     <div style="display:flex;align-items:center;gap:8px;">
       <span class="label-caps">Deploy domain</span>
@@ -98,7 +105,7 @@
       <span class="small faint"><%= dc.source %><% if (dc.author) { %> · <%= dc.author %><% } %></span>
     </div>
     <span class="grow"></span>
-    <% if (it.canEditConfig) { %><span class="btn btn-ghost sm" title="Editing (forms + kit-release composer) lands in the next increment" style="opacity:.6;cursor:default;"><i class="icon-pencil"></i> Edit — coming next</span><% } %>
+    <% if (it.canEditConfig) { %><a class="btn btn-primary" href="/cicd/projects/<%= it.project.id %>?tab=config&edit=1"><i class="icon-pencil"></i> Edit deploy config</a><% } %>
   </div>
 
   <div class="card"><div class="card-head"><span class="accent-bar"></span><h2>Environments</h2></div>
@@ -166,5 +173,6 @@
           <tr><td class="mono">v<%= v.version %></td><td><%= v.source %></td><td><%= v.author %></td><td class="small muted"><%~ it.timeAgo(v.created_at) %></td><td class="small faint"><%= v.note || '' %></td></tr>
         <% }) %>
       </tbody></table></div></div>
+  <% } %>
   <% } %>
 <% } %>

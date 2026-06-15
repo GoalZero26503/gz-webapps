@@ -1,6 +1,6 @@
 import type { FastifyInstance } from 'fastify';
-import { requireAuth } from '../auth/plugin.js';
-import { artifactsFor, platform } from '../platform/client.js';
+import { requireAuth, requirePermission } from '../auth/plugin.js';
+import { artifactsFor, platform, type DeployConfigInput } from '../platform/client.js';
 import { ENVS, type Env, type Project } from '../platform/types.js';
 import { programs as programsTable } from '../store/repo.js';
 import type { Program } from '../store/types.js';
@@ -144,7 +144,7 @@ export async function pageRoutes(app: FastifyInstance): Promise<void> {
     return reply.view('partials/project-rows.eta', await projectsData(request.query));
   });
 
-  app.get<{ Params: { id: string }; Querystring: { tab?: string } }>('/cicd/projects/:id', { preHandler: requireAuth }, async (request, reply) => {
+  app.get<{ Params: { id: string }; Querystring: { tab?: string; edit?: string } }>('/cicd/projects/:id', { preHandler: requireAuth }, async (request, reply) => {
     const [project, deployments] = await Promise.all([
       platform.getProject(request.params.id),
       platform.listDeployments({ projectId: request.params.id }),
@@ -163,6 +163,8 @@ export async function pageRoutes(app: FastifyInstance): Promise<void> {
     const [deployConfig, deployVersions] = tab === 'config'
       ? await Promise.all([platform.getDeployConfig(project.id), platform.getDeployConfigVersions(project.id)])
       : [null, []];
+    const canEditConfig = request.user!.permissions.includes('deploy-config:write');
+    const editing = tab === 'config' && request.query.edit === '1' && canEditConfig;
     return reply.view('project-detail.eta', {
       ...(await chrome(request, 'cicd', 'projects')),
       title: project.name,
@@ -174,10 +176,33 @@ export async function pageRoutes(app: FastifyInstance): Promise<void> {
       tab,
       deployConfig,
       deployVersions,
+      editing,
+      deployConfigJson: deployConfig ? JSON.stringify(deployConfig) : '{}',
       canDeploy: request.user!.permissions.includes('deploys:create'),
-      canEditConfig: request.user!.permissions.includes('deploy-config:write'),
+      canEditConfig,
     });
   });
+
+  // Save a new deploy-config version (Lit editor POSTs JSON here).
+  app.post<{ Params: { id: string }; Body: DeployConfigInput }>(
+    '/cicd/projects/:id/config',
+    { preHandler: requirePermission('deploy-config:write') },
+    async (request, reply) => {
+      const b = request.body;
+      if (!Array.isArray(b?.environments) || !Array.isArray(b?.deploy_pipelines)) {
+        return reply.code(400).send({ error: 'environments and deploy_pipelines are required arrays' });
+      }
+      const saved = await platform.saveDeployConfig(request.params.id, {
+        environments: b.environments,
+        deploy_pipelines: b.deploy_pipelines,
+        artifacts: Array.isArray(b.artifacts) ? b.artifacts : [],
+        kit: b.kit,
+        health_check: b.health_check,
+        note: b.note,
+      });
+      return reply.send({ ok: true, version: saved.version });
+    },
+  );
 
   app.get<{ Querystring: { env?: string } }>('/cicd/environments', { preHandler: requireAuth }, async (request, reply) => {
     const env = (ENVS as readonly string[]).includes(request.query.env ?? '') ? (request.query.env as Env) : 'beta';
