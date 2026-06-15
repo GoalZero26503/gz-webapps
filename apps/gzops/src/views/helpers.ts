@@ -64,6 +64,11 @@ export function rail(railData: Rail, withHeader = false, navFor?: NavFor): strin
   return `<div class="rail-scroll">${withHeader ? envHeader(false) : ''}<div class="rail">${ENVS.map((e) => cell(railData[e], navFor ? navFor(e) : null)).join('')}</div></div>`;
 }
 
+/** Dim placeholder rail shown while a lazy (HTMX) health panel loads. */
+export function railSkeleton(): string {
+  return `<div class="rail-scroll">${envHeader(false)}<div class="rail">${ENVS.map(() => `<div class="cell"><div class="v faint">…</div></div>`).join('')}</div></div>`;
+}
+
 export function channelRail(channels: Record<string, Rail>, navFor?: NavFor): string {
   const rows = Object.entries(channels)
     .map(([name, envs]) => `<span class="env-label">${esc(name)}</span>${ENVS.map((e) => cell(envs[e], navFor ? navFor(e) : null)).join('')}`)
@@ -136,8 +141,12 @@ export function programSection(
       </details>`;
     }
   } else if (p.type === 'cloud') {
-    if (has('rail')) body += rail(p.rail ?? {}, true);
-    if (has('health')) body += `<div style="margin-top:10px;"><span class="badge ok"><span class="dot ok"></span> ${esc(p.health || 'Healthy')}</span></div>`;
+    // Live health: lazy-load the real /health probe (version/hash + reachability)
+    // so the page renders instantly; falls back to platform deploy-state if the
+    // project has no health_check configured. Replaces the old static pill.
+    if (has('rail') || has('health')) {
+      body += `<div class="health-lazy" hx-get="/cicd/health/${esc(p.id)}" hx-trigger="load" hx-swap="outerHTML">${railSkeleton()}</div>`;
+    }
   } else if (p.type === 'mobile') {
     if (has('envs')) body += rail(p.rail ?? {}, true);
     if (has('stores') || has('groups')) {

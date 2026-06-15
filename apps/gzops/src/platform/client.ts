@@ -33,11 +33,15 @@ import {
   type Deployment,
   type DeploymentLogLine,
   type Env,
+  type EnvHealth,
   type EnvProjectState,
+  type HealthCheckConfig,
   type Project,
   type Rail,
   type RailCell,
 } from './types.js';
+
+const pickStr = (v: unknown): string | undefined => (typeof v === 'string' && v ? v : undefined);
 
 export interface CreateDeploymentInput {
   projectId: string;
@@ -61,6 +65,10 @@ class PlatformClient {
    *  the warm window near-instant. Writes (createDeployment) clear it. */
   private readonly cache = new Map<string, { at: number; data: unknown }>();
   private static readonly CACHE_TTL_MS = 20_000;
+
+  /** Cache for external `/health` probes (separate from the SigV4 platform cache). */
+  private readonly healthCache = new Map<string, { at: number; data: EnvHealth }>();
+  private static readonly HEALTH_TIMEOUT_MS = 5_000;
 
   private get isFake(): boolean {
     return getConfig().platformMode === 'fake';
@@ -160,6 +168,53 @@ class PlatformClient {
       type: p.type,
       cell: p.rail?.[env] ?? null,
     }));
+  }
+
+  // ── Live health checks (cloud /health probing) ────────────
+  /** Read a project's health-check config from its synced config_snapshot. */
+  async healthConfig(projectId: string): Promise<HealthCheckConfig | null> {
+    if (this.isFake) return { url: 'https://yeti-{env}.goalzeroapp.com/health', environments: ['dev', 'test', 'prod'] };
+    const raw = await this
+      .getJson<{ config_snapshot?: { project?: { health_check?: HealthCheckConfig } } }>(`/projects/${encodeURIComponent(projectId)}`)
+      .catch(() => null);
+    return raw?.config_snapshot?.project?.health_check ?? null;
+  }
+
+  /** Probe every configured environment's `/health`. Returns null if unconfigured. */
+  async projectHealth(projectId: string): Promise<EnvHealth[] | null> {
+    const cfg = await this.healthConfig(projectId);
+    if (!cfg) return null;
+    const envs = (cfg.environments?.length ? cfg.environments : ENVS).filter((e): e is Env => (ENVS as readonly string[]).includes(e));
+    return Promise.all(envs.map((env) => this.probeHealth(env, cfg.overrides?.[env] ?? cfg.url.replace(/\{env\}/g, env))));
+  }
+
+  private async probeHealth(env: Env, url: string): Promise<EnvHealth> {
+    if (this.isFake) {
+      return { env, ok: true, status: 200, version: '1.5.2', gitSha: 'bdca198a', gzopsHash: env === 'dev' ? 'local-1774031122' : '95d19c51d8fc' };
+    }
+    const cached = this.healthCache.get(url);
+    if (cached && Date.now() - cached.at < PlatformClient.CACHE_TTL_MS) return { ...cached.data, env };
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), PlatformClient.HEALTH_TIMEOUT_MS);
+    try {
+      const res = await fetch(url, { signal: ctrl.signal });
+      let body: Record<string, unknown> = {};
+      try { body = (await res.json()) as Record<string, unknown>; } catch { /* non-JSON health body */ }
+      const data: EnvHealth = {
+        env,
+        ok: res.ok,
+        status: res.status,
+        version: pickStr(body.version),
+        gitSha: pickStr(body.gitSha),
+        gzopsHash: pickStr(body.gzopsHash),
+      };
+      this.healthCache.set(url, { at: Date.now(), data });
+      return data;
+    } catch (e) {
+      return { env, ok: false, status: 0, error: e instanceof Error && e.name === 'AbortError' ? 'timeout' : 'unreachable' };
+    } finally {
+      clearTimeout(timer);
+    }
   }
 
   // ── Access groups (flattened from projects) ───────────────
