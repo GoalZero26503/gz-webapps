@@ -30,12 +30,14 @@ void (async () => {
 import {
   ENVS,
   type Artifact,
+  type DeployConfig,
   type Deployment,
   type DeploymentLogLine,
   type Env,
   type EnvHealth,
   type EnvProjectState,
   type HealthCheckConfig,
+  type KitDeployConfig,
   type Project,
   type Rail,
   type RailCell,
@@ -50,6 +52,19 @@ export interface CreateDeploymentInput {
   by: string;
 }
 
+/** Editable subset of a deploy-config (a PUT body); the platform stamps the rest. */
+export interface DeployConfigInput {
+  environments: string[];
+  deploy_pipelines: DeployConfig['deploy_pipelines'];
+  artifacts: DeployConfig['artifacts'];
+  kit?: KitDeployConfig;
+  health_check?: HealthCheckConfig;
+  note?: string;
+  /** Acting user — the BFF authorizes via SigV4, so it attributes the author. */
+  author?: string;
+  source?: DeployConfig['source'];
+}
+
 interface SimMeta {
   startedAtMs: number;
   durationMs: number;
@@ -59,6 +74,8 @@ class PlatformClient {
   /** Mutable in-memory deployment list for fake mode (seed + session deploys). */
   private fakeDeployments: Deployment[] | null = null;
   private readonly sims = new Map<string, SimMeta>();
+  /** In-session saved deploy-configs for fake mode (keyed by projectId). */
+  private readonly fakeConfigs = new Map<string, DeployConfig>();
 
   /** Short-TTL cache for live GETs, keyed by path. Dedupes the per-request
    *  fan-out (e.g. chrome + page both list projects) and makes navigation within
@@ -223,6 +240,92 @@ class PlatformClient {
     return projects.flatMap((p) => (p.accessGroups ?? []).map((g) => ({ name: g.name, project: p.name, published: g.published })));
   }
 
+  // ── Deploy-domain config (versioned; webapp-editable) ─────
+  /** The active deploy-config (newest saved version, else a synthesized v0). */
+  async getDeployConfig(projectId: string): Promise<DeployConfig> {
+    if (this.isFake) return this.fakeConfigs.get(projectId) ?? this.fakeDeployConfig(projectId);
+    return this.getJson<DeployConfig>(`/projects/${encodeURIComponent(projectId)}/deploy-config`);
+  }
+
+  /** Saved versions, newest first (the active one is [0]). */
+  async getDeployConfigVersions(projectId: string): Promise<DeployConfig[]> {
+    if (this.isFake) return [await this.getDeployConfig(projectId)];
+    const res = await this.getJson<DeployConfig[] | { versions?: DeployConfig[] }>(
+      `/projects/${encodeURIComponent(projectId)}/deploy-config/versions`,
+    );
+    return Array.isArray(res) ? res : res.versions ?? [];
+  }
+
+  /** Save a new immutable deploy-config version. */
+  async saveDeployConfig(projectId: string, input: DeployConfigInput): Promise<DeployConfig> {
+    if (this.isFake) {
+      const prev = await this.getDeployConfig(projectId);
+      const next: DeployConfig = {
+        ...prev,
+        ...input,
+        version: prev.version + 1,
+        config_id: `v${String(prev.version + 1).padStart(7, '0')}`,
+        source: 'webapp',
+        author: 'you@local',
+        created_at: new Date().toISOString(),
+      };
+      this.fakeConfigs.set(projectId, next);
+      return next;
+    }
+    return this.putJson<DeployConfig>(`/projects/${encodeURIComponent(projectId)}/deploy-config`, input);
+  }
+
+  /** Fake-mode deploy-config derived from a fixture project (type-shaped). */
+  private fakeDeployConfig(projectId: string): DeployConfig {
+    const p = FIXTURE_PROJECTS.find((x) => x.id === projectId);
+    const type = p?.type ?? 'cloud';
+    const base: DeployConfig = {
+      project_id: projectId,
+      config_id: 'v0000000',
+      version: 0,
+      environments: [...ENVS],
+      deploy_pipelines: [],
+      artifacts: [],
+      author: 'config-sync',
+      source: 'seed',
+      note: 'Synthesized from config_snapshot (fake mode).',
+      created_at: new Date().toISOString(),
+    };
+    if (type === 'cloud') {
+      base.deploy_pipelines = [{ name: 'serverless', plugin: 'github-action', config: { workflow: 'deploy.yml' } }];
+      base.artifacts = [{ id: 'serverless', name_pattern: '*.zip', build_pipeline: 'serverless', deploy_pipelines: ['serverless'], envs: ['*'] }];
+      base.health_check = { url: 'https://yeti-{env}.goalzeroapp.com/health', environments: [...ENVS] };
+    } else if (type === 'mobile') {
+      base.deploy_pipelines = [
+        { name: 'testflight', plugin: 'testflight', config: { group: 'Internal' } },
+        { name: 'playstore', plugin: 'playstore', config: { track: 'internal' } },
+      ];
+      base.artifacts = [
+        { id: 'ios', name_pattern: '*.ipa', build_pipeline: 'ios', deploy_pipelines: ['testflight'], envs: ['*'] },
+        { id: 'android', name_pattern: '*.aab', build_pipeline: 'android', deploy_pipelines: ['playstore'], envs: ['*'] },
+      ];
+    } else if (type === 'firmware-kit') {
+      base.deploy_pipelines = [
+        { name: 'app', plugin: 'firmware-kit-deploy', config: { bucket: 'gz-{env}-firmware-manifests', source_dir: 'minimized' } },
+        { name: 'warehouse', plugin: 'firmware-kit-deploy', config: { bucket: 'gz-{env}-warehouse-manifests', source_dir: 'populated' } },
+      ];
+      base.kit = {
+        host_ids: ['H-36900-A20-B1-C1', 'H-37000-A20-B1-C1', 'H-36900-A20-B2-C1'],
+        components: [
+          { name: 'A20 board', project: 'goalzero26503-a20-node', version: '2.0.6' },
+          { name: 'B1 board', project: 'goalzero26503-b1-node', version: '0.5.8' },
+        ],
+        releases: [
+          { version: '1.3.6', build_targets: ['H-36900-A20-B1-C1', 'H-37000-A20-B1-C1'], manifest: { iNodes: { 'A20-1': '2.0.6', 'B1-1': '0.5.8' } } },
+          { version: '1.3.6', build_targets: ['H-36900-A20-B2-C1'], manifest: { iNodes: { 'A20-1': '2.0.6', 'B2-1': '0.1.6' } } },
+        ],
+      };
+    } else {
+      base.deploy_pipelines = [{ name: 's3', plugin: 's3', config: { bucket: 'gz-{env}-firmware-images' } }];
+    }
+    return base;
+  }
+
   // ── Fake-mode internals ───────────────────────────────────
   private fakeStore(): Deployment[] {
     if (!this.fakeDeployments) this.fakeDeployments = fixtureDeployments();
@@ -284,6 +387,12 @@ class PlatformClient {
   private async postJson<T>(path: string, body: unknown): Promise<T> {
     const out = await this.fetchSigned<T>('POST', path, JSON.stringify(body));
     this.cache.clear(); // a write (e.g. new deploy) invalidates cached reads
+    return out;
+  }
+
+  private async putJson<T>(path: string, body: unknown): Promise<T> {
+    const out = await this.fetchSigned<T>('PUT', path, JSON.stringify(body));
+    this.cache.clear();
     return out;
   }
 

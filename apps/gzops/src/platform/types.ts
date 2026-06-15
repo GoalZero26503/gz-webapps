@@ -122,6 +122,71 @@ export interface EnvHealth {
   error?: string;
 }
 
+// ── Deploy-domain config (backend-authoritative, webapp-editable) ──────────
+// Mirrors gzops-platform shared/types.ts DeployConfig. The webapp reads the
+// active version (GET /projects/{id}/deploy-config) and saves new ones (PUT).
+
+/** One deploy pipeline: a named plugin invocation (s3, testflight, …) + config. */
+export interface PipelineDefinition {
+  name: string;
+  plugin: string;
+  runner?: string;
+  config?: Record<string, unknown>;
+}
+
+/** An artifact's deploy routing/visibility (which pipelines, which envs). */
+export interface ArtifactDefinition {
+  id: string;
+  name_pattern: string;
+  build_pipeline: string;
+  deploy_pipelines: string[];
+  envs?: string[];
+}
+
+/** Per-slot firmware versions for one kit release (slot id → version). */
+export interface KitManifest {
+  iNodes: Record<string, string>;
+  xNodes?: Record<string, string>;
+}
+
+/** One composable kit release: which firmware versions ship to which hosts. */
+export interface KitRelease {
+  version?: string;
+  build_targets?: string[];
+  manifest: KitManifest;
+}
+
+/** A node project pinned into a kit (deploy-config form; distinct from the
+ *  rail-view KitComponent which is {label, projectId}). */
+export interface KitConfigComponent {
+  name: string;
+  project: string;
+  version?: string;
+}
+
+/** Firmware-kit deploy data (host topology + composable releases). */
+export interface KitDeployConfig {
+  host_ids: string[];
+  components?: KitConfigComponent[];
+  releases: KitRelease[];
+}
+
+/** A project's deploy-domain config — one immutable, versioned record. */
+export interface DeployConfig {
+  project_id: string;
+  config_id: string;
+  version: number;
+  environments: string[];
+  deploy_pipelines: PipelineDefinition[];
+  artifacts: ArtifactDefinition[];
+  kit?: KitDeployConfig;
+  health_check?: HealthCheckConfig;
+  author: string;
+  source: 'seed' | 'webapp' | 'config-sync' | 'import' | 'migration';
+  note?: string;
+  created_at: string;
+}
+
 /** An artifact row in the per-project build matrix. */
 export interface Artifact {
   name: string;
