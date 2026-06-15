@@ -150,7 +150,7 @@ export async function pageRoutes(app: FastifyInstance): Promise<void> {
       platform.listDeployments({ projectId: request.params.id }),
     ]);
     if (!project) return reply.code(404).view('not-found.eta', { ...(await chrome(request, 'cicd', 'projects')), title: 'Not found', what: 'Project' });
-    const tab = request.query.tab === 'builds' ? 'builds' : 'deployment';
+    const tab = ['builds', 'config'].includes(request.query.tab ?? '') ? request.query.tab! : 'deployment';
     // The component matrix only references this project's own (already-enriched)
     // state; no need to fan out env-state for every platform project.
     const projects = [project];
@@ -159,6 +159,10 @@ export async function pageRoutes(app: FastifyInstance): Promise<void> {
       const d = deployments.find((x) => x.env === e);
       if (d) latestByEnv[e] = d.id;
     }
+    // Deploy-config is only needed for the CONFIG tab — fetch lazily.
+    const [deployConfig, deployVersions] = tab === 'config'
+      ? await Promise.all([platform.getDeployConfig(project.id), platform.getDeployConfigVersions(project.id)])
+      : [null, []];
     return reply.view('project-detail.eta', {
       ...(await chrome(request, 'cicd', 'projects')),
       title: project.name,
@@ -168,7 +172,10 @@ export async function pageRoutes(app: FastifyInstance): Promise<void> {
       latestByEnv,
       artifacts: artifactsFor(project),
       tab,
+      deployConfig,
+      deployVersions,
       canDeploy: request.user!.permissions.includes('deploys:create'),
+      canEditConfig: request.user!.permissions.includes('deploy-config:write'),
     });
   });
 

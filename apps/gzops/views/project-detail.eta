@@ -12,6 +12,7 @@
 <div class="filters">
   <a class="pill <%= it.tab === 'deployment' ? 'active' : '' %>" href="/cicd/projects/<%= it.project.id %>?tab=deployment">DEPLOYMENT</a>
   <a class="pill <%= it.tab === 'builds' ? 'active' : '' %>" href="/cicd/projects/<%= it.project.id %>?tab=builds">BUILDS</a>
+  <a class="pill <%= it.tab === 'config' ? 'active' : '' %>" href="/cicd/projects/<%= it.project.id %>?tab=config">DEPLOY CONFIG</a>
 </div>
 
 <% if (it.tab === 'deployment') { %>
@@ -59,7 +60,7 @@
       <% }) %>
     </tbody></table>
   </div></div>
-<% } else { %>
+<% } else if (it.tab === 'builds') { %>
   <div id="deploy-tile"></div>
   <div class="card"><div class="card-head"><span class="accent-bar"></span><h2>Artifacts</h2><span class="grow"></span><span class="small faint"><%= it.artifacts.length %> artifacts · newest first</span></div>
     <div class="card-body flush"><table class="tbl">
@@ -88,4 +89,82 @@
         <% }) %>
       </tbody>
     </table></div></div>
+<% } else if (it.tab === 'config') { %>
+  <% var dc = it.deployConfig; %>
+  <div class="page-head" style="margin-bottom:14px;">
+    <div style="display:flex;align-items:center;gap:8px;">
+      <span class="label-caps">Deploy domain</span>
+      <span class="badge <%= dc.version ? 'info' : '' %>"><%= dc.version ? ('v' + dc.version) : 'unsaved (v0)' %></span>
+      <span class="small faint"><%= dc.source %><% if (dc.author) { %> · <%= dc.author %><% } %></span>
+    </div>
+    <span class="grow"></span>
+    <% if (it.canEditConfig) { %><span class="btn btn-ghost sm" title="Editing (forms + kit-release composer) lands in the next increment" style="opacity:.6;cursor:default;"><i class="icon-pencil"></i> Edit — coming next</span><% } %>
+  </div>
+
+  <div class="card"><div class="card-head"><span class="accent-bar"></span><h2>Environments</h2></div>
+    <div class="card-body"><div class="chips">
+      <% ;(dc.environments || []).forEach(function (e) { %><span class="chip"><%= e %></span><% }) %>
+      <% if (!(dc.environments || []).length) { %><span class="small faint">none</span><% } %>
+    </div></div></div>
+
+  <div class="card"><div class="card-head"><h2>Deploy pipelines</h2><span class="grow"></span><span class="small faint"><%= (dc.deploy_pipelines||[]).length %></span></div>
+    <div class="card-body flush"><table class="tbl">
+      <thead><tr><th>Name</th><th>Plugin</th><th>Config</th></tr></thead><tbody>
+        <% if (!(dc.deploy_pipelines||[]).length) { %><tr><td colspan="3"><div class="empty-state">No deploy pipelines</div></td></tr><% } %>
+        <% ;(dc.deploy_pipelines||[]).forEach(function (p) { %>
+          <tr><td class="mono"><%= p.name %></td><td><span class="badge type"><%= p.plugin %></span></td>
+            <td class="mono small faint"><%= JSON.stringify(p.config || {}) %></td></tr>
+        <% }) %>
+      </tbody></table></div></div>
+
+  <div class="card"><div class="card-head"><h2>Artifact routing</h2></div>
+    <div class="card-body flush"><table class="tbl">
+      <thead><tr><th>Artifact</th><th>Build</th><th>Deploy pipelines</th><th>Envs</th></tr></thead><tbody>
+        <% if (!(dc.artifacts||[]).length) { %><tr><td colspan="4"><div class="empty-state">No artifacts</div></td></tr><% } %>
+        <% ;(dc.artifacts||[]).forEach(function (a) { %>
+          <tr><td class="mono"><%= a.id %><div class="small faint"><%= a.name_pattern %></div></td>
+            <td class="mono"><%= a.build_pipeline %></td>
+            <td><% ;(a.deploy_pipelines||[]).forEach(function(dp){ %><span class="chip"><%= dp %></span><% }) %></td>
+            <td><% ;(a.envs||['*']).forEach(function(e){ %><span class="chip"><%= e %></span><% }) %></td></tr>
+        <% }) %>
+      </tbody></table></div></div>
+
+  <% if (dc.kit) { %>
+    <div class="card"><div class="card-head"><span class="accent-bar"></span><h2>Kit releases</h2><span class="grow"></span><span class="small faint"><%= dc.kit.host_ids.length %> hosts · <%= dc.kit.releases.length %> releases</span></div>
+      <div class="card-body">
+        <div class="label-caps" style="margin-bottom:6px;">Host topology</div>
+        <div class="chips" style="margin-bottom:14px;"><% dc.kit.host_ids.forEach(function(h){ %><span class="chip mono"><%= h %></span><% }) %></div>
+        <% if ((dc.kit.components||[]).length) { %>
+          <div class="label-caps" style="margin-bottom:6px;">Components</div>
+          <div style="margin-bottom:14px;"><% dc.kit.components.forEach(function(c){ %><div class="kv"><span class="k"><%= c.name %> <span class="small faint mono"><%= c.project %></span></span><span class="v mono"><%= c.version || '—' %></span></div><% }) %></div>
+        <% } %>
+        <div class="label-caps" style="margin-bottom:6px;">Releases</div>
+        <% dc.kit.releases.forEach(function(r){ %>
+          <div class="card" style="margin-bottom:10px;"><div class="card-body">
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap;"><span class="badge info">v<%= r.version || '—' %></span>
+              <span class="small faint">hosts:</span><% ;(r.build_targets||['*']).forEach(function(t){ %><span class="chip mono"><%= t %></span><% }) %></div>
+            <table class="tbl"><thead><tr><th>Slot</th><th>Version</th></tr></thead><tbody>
+              <% Object.keys(r.manifest.iNodes||{}).forEach(function(slot){ %><tr><td class="mono"><%= slot %></td><td class="mono"><%= r.manifest.iNodes[slot] %></td></tr><% }) %>
+              <% Object.keys(r.manifest.xNodes||{}).forEach(function(slot){ %><tr><td class="mono"><%= slot %> <span class="small faint">(xNode)</span></td><td class="mono"><%= r.manifest.xNodes[slot] %></td></tr><% }) %>
+            </tbody></table>
+          </div></div>
+        <% }) %>
+      </div></div>
+  <% } %>
+
+  <% if (dc.health_check) { %>
+    <div class="card"><div class="card-head"><h2>Health check</h2></div><div class="card-body">
+      <div class="kv"><span class="k">URL</span><span class="v mono"><%= dc.health_check.url %></span></div>
+      <div class="kv"><span class="k">Environments</span><span class="v"><% ;(dc.health_check.environments||it.ENVS).forEach(function(e){ %><span class="chip"><%= e %></span><% }) %></span></div>
+    </div></div>
+  <% } %>
+
+  <% if ((it.deployVersions||[]).length) { %>
+    <div class="card"><div class="card-head"><h2>Version history</h2></div><div class="card-body flush"><table class="tbl">
+      <thead><tr><th>Version</th><th>Source</th><th>Author</th><th>When</th><th>Note</th></tr></thead><tbody>
+        <% it.deployVersions.forEach(function(v){ %>
+          <tr><td class="mono">v<%= v.version %></td><td><%= v.source %></td><td><%= v.author %></td><td class="small muted"><%~ it.timeAgo(v.created_at) %></td><td class="small faint"><%= v.note || '' %></td></tr>
+        <% }) %>
+      </tbody></table></div></div>
+  <% } %>
 <% } %>

@@ -3,6 +3,7 @@ export type AppRole = (typeof APP_ROLES)[number];
 
 export const PERMISSIONS = {
   'deploys:create': 'Trigger deployments',
+  'deploy-config:write': 'Edit a project’s deploy config (environments, pipelines, artifacts, kit releases)',
   'programs:write': 'Create, edit, and publish programs',
   'users:read': 'View users and access requests',
   'users:write': 'Approve/deny requests, change roles, remove users',
@@ -17,8 +18,8 @@ export type Permission = keyof typeof PERMISSIONS;
  */
 export const ROLE_PERMISSIONS: Record<AppRole, Permission[]> = {
   viewer: [],
-  editor: ['deploys:create', 'programs:write'],
-  admin: ['deploys:create', 'programs:write', 'users:read', 'users:write'],
+  editor: ['deploys:create', 'deploy-config:write', 'programs:write'],
+  admin: ['deploys:create', 'deploy-config:write', 'programs:write', 'users:read', 'users:write'],
 };
 
 export const ROLE_HIERARCHY: Record<AppRole, number> = {
