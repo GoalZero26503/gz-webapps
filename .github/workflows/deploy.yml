@@ -55,11 +55,14 @@ jobs:
     # The GitHub Environment carries the per-app deploy role ARN, and each AWS
     # role's trust policy is keyed on this environment claim — the timesheet
     # role can only be assumed by the timesheet job on main (charter §4.6).
-    environment: ${{ matrix.app }}
+    # A stage=prod dispatch selects the per-app *-prod environment (e.g.
+    # `gzops-prod`), whose DEPLOY_ROLE_ARN points at the gz-prod OIDC role and
+    # which may gate on required reviewers. Merge-to-main / stage=dev use the
+    # plain `<app>` (dev) environment.
+    environment: ${{ matrix.app }}${{ inputs.stage == 'prod' && '-prod' || '' }}
     env:
-      # Bootstrap posture: merge-to-main deploys DEV until prod accounts,
-      # domains, and prod deploy roles are wired (validation round, charter
-      # §8.2). Flip to 'prod' when the fleet goes live.
+      # dev = auto-deploy on merge to main; prod = explicit workflow_dispatch
+      # with stage=prod (deliberate, reviewer-gated).
       STAGE: ${{ inputs.stage || 'dev' }}
     steps:
       - uses: actions/checkout@v4
