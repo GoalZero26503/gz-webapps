@@ -43,15 +43,25 @@ export async function loadConfig(): Promise<AppConfig> {
   let jwtSecret = process.env.JWT_SECRET;
   let googleClientId = process.env.GOOGLE_CLIENT_ID;
   let googleClientSecret = process.env.GOOGLE_CLIENT_SECRET;
+  // The BFF signs SigV4 against the API's regional execute-api endpoint — IAM
+  // auth fails through the CloudFront custom domain (signed-Host mismatch). In
+  // AWS the endpoint comes from SSM (authoritative — reconfigurable without a
+  // redeploy), overriding the CDK-set env; local dev uses the env/default.
+  let platformBaseUrl = process.env.PLATFORM_BASE_URL;
 
-  if (!jwtSecret || !googleClientId || !googleClientSecret) {
+  if (!isLocal || !jwtSecret || !googleClientId || !googleClientSecret) {
     const ssm = new SSMClient({});
     const prefix = `/gzweb/${appName}/${stage}`;
-    [jwtSecret, googleClientId, googleClientSecret] = await Promise.all([
-      getParam(ssm, `${prefix}/jwt_secret`, true),
-      getParam(ssm, `${prefix}/google_client_id`, false),
-      getParam(ssm, `${prefix}/google_client_secret`, true),
+    const [j, ci, cs, pb] = await Promise.all([
+      jwtSecret ?? getParam(ssm, `${prefix}/jwt_secret`, true),
+      googleClientId ?? getParam(ssm, `${prefix}/google_client_id`, false),
+      googleClientSecret ?? getParam(ssm, `${prefix}/google_client_secret`, true),
+      isLocal ? Promise.resolve('') : getParam(ssm, `${prefix}/platform_base_url`, false).catch(() => ''),
     ]);
+    jwtSecret = j;
+    googleClientId = ci;
+    googleClientSecret = cs;
+    if (pb) platformBaseUrl = pb; // SSM wins over the CDK env when set
   }
 
   config = {
@@ -68,7 +78,7 @@ export async function loadConfig(): Promise<AppConfig> {
     googleClientSecret,
     tablePrefix: process.env.TABLE_PREFIX || `gzweb-${stage}-${appName}-`,
     storeMode: (process.env.STORE_MODE as 'dynamo' | 'memory') || (isLocal ? 'memory' : 'dynamo'),
-    platformBaseUrl: process.env.PLATFORM_BASE_URL || 'https://gzops-api-dev.goalzeroapp.com',
+    platformBaseUrl: platformBaseUrl || 'https://gzops-api-dev.goalzeroapp.com',
     platformMode: (process.env.PLATFORM_MODE as 'live' | 'fake') || (isLocal ? 'fake' : 'live'),
     isLocal,
   };
