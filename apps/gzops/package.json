@@ -1,5 +1,6 @@
 {
   "name": "gzops",
+  "version": "1.0.0",
   "private": true,
   "type": "module",
   "description": "GZOps — internal release-ops portal on the unified template (Fastify + Eta + HTMX + Lit, BFF over the gzops-platform API, app state in DynamoDB, Lambda Web Adapter)",

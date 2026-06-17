@@ -38,7 +38,13 @@ export function buildApp(): FastifyInstance {
     viewExt: 'eta',
     // Helpers (rails, badges, timeAgo, …) are stateless, so they ride in the
     // default context and every template can call them as `<%~ it.rail(...) %>`.
-    defaultContext: { appName: getConfig().appName, stage: getConfig().stage, ...viewHelpers },
+    defaultContext: {
+      appName: getConfig().appName,
+      stage: getConfig().stage,
+      version: getConfig().version,
+      gitSha: getConfig().gitSha,
+      ...viewHelpers,
+    },
   });
   // Cache static assets so they stop revalidating on every page load (the old
   // max-age=0 forced a CloudFront→Lambda round-trip per asset per navigation).

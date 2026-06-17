@@ -187,6 +187,19 @@ class PlatformClient {
     }));
   }
 
+  // ── Platform build identity (GET /health) ─────────────────
+  /** The backend's own version + git sha (sidebar footer). Cached via getJson;
+   *  null if the platform is unreachable so the footer just omits the line. */
+  async serviceHealth(): Promise<{ version?: string; gitSha?: string } | null> {
+    if (this.isFake) return { version: '1.0.0', gitSha: 'bdca198a' };
+    try {
+      const h = await this.getJson<{ version?: string; gitSha?: string }>('/health');
+      return { version: pickStr(h.version), gitSha: pickStr(h.gitSha) };
+    } catch {
+      return null;
+    }
+  }
+
   // ── Live health checks (cloud /health probing) ────────────
   /** Read a project's health-check config from its synced config_snapshot. */
   async healthConfig(projectId: string): Promise<HealthCheckConfig | null> {

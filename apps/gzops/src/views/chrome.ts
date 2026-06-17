@@ -40,6 +40,8 @@ export interface PageChrome {
   sidebar: NavGroup[];
   unread: number;
   notifs: AppNotification[];
+  /** Backend build identity for the sidebar footer; null if unreachable. */
+  backend: { version?: string; gitSha?: string } | null;
 }
 
 const CICD_SIDEBAR: NavGroup[] = [
@@ -61,7 +63,7 @@ const ADMIN_SIDEBAR: NavGroup[] = [
 export async function chrome(request: FastifyRequest, area: Area, active: string): Promise<PageChrome> {
   await ensureSeeded();
   const user = request.user!;
-  const notifs = await notificationsFor(user);
+  const [notifs, backend] = await Promise.all([notificationsFor(user), platform.serviceHealth()]);
   const unread = notifs.filter((n) => !n.read).length;
 
   const areaTabs: AreaTab[] = [
@@ -94,5 +96,5 @@ export async function chrome(request: FastifyRequest, area: Area, active: string
     sidebar = ADMIN_SIDEBAR;
   }
 
-  return { user, area, active, areaTabs, sidebar, unread, notifs };
+  return { user, area, active, areaTabs, sidebar, unread, notifs, backend };
 }
