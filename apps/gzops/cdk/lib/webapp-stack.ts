@@ -1,3 +1,5 @@
+import { execSync } from 'node:child_process';
+import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import * as cdk from 'aws-cdk-lib';
@@ -45,6 +47,20 @@ export interface WebappStackProps extends cdk.StackProps {
 
 const appDir = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 const repoRoot = path.join(appDir, '..', '..');
+
+// Build identity baked into the Lambda env, surfaced in the sidebar footer.
+// Version from the app's package.json; sha from the CI commit (GITHUB_SHA) or
+// the local working tree at deploy time.
+const appVersion = JSON.parse(readFileSync(path.join(appDir, 'package.json'), 'utf8')).version as string;
+const gitSha = ((): string => {
+  const ci = process.env.GITHUB_SHA?.slice(0, 8);
+  if (ci) return ci;
+  try {
+    return execSync('git rev-parse --short=8 HEAD', { cwd: repoRoot }).toString().trim();
+  } catch {
+    return 'unknown';
+  }
+})();
 
 // App-owned KV tables (charter §3.5 escape hatch). Suffix → partition key.
 // Names resolve to gzweb-{stage}-{app}-{suffix}; must match store/client.ts.
@@ -115,6 +131,8 @@ export class WebappStack extends cdk.Stack {
       environment: {
         APP_NAME: appName,
         STAGE: stage,
+        APP_VERSION: appVersion,
+        GIT_SHA: gitSha,
         SEED_ADMIN_EMAIL: seedAdminEmail,
         ALLOWED_DOMAINS: 'bioliteenergy.com',
         STORE_MODE: 'dynamo',

@@ -1,3 +1,5 @@
+import { execSync } from 'node:child_process';
+import { readFileSync } from 'node:fs';
 import { SSMClient, GetParameterCommand } from '@aws-sdk/client-ssm';
 
 export interface AppConfig {
@@ -18,6 +20,10 @@ export interface AppConfig {
   platformBaseUrl: string;
   /** 'live' signs real requests; 'fake' serves seeded demo data for local dev. */
   platformMode: 'live' | 'fake';
+  /** App version (package.json), surfaced in the sidebar footer. */
+  version: string;
+  /** Short git sha of the deployed build, surfaced in the sidebar footer. */
+  gitSha: string;
   isLocal: boolean;
 }
 
@@ -26,6 +32,24 @@ let config: AppConfig | null = null;
 async function getParam(ssm: SSMClient, name: string, decrypt: boolean): Promise<string> {
   const result = await ssm.send(new GetParameterCommand({ Name: name, WithDecryption: decrypt }));
   return result.Parameter!.Value!;
+}
+
+// Build identity comes from the env in AWS (set by CDK). For local dev the
+// env is absent, so fall back to the working tree — package.json + git sha.
+function localPkgVersion(): string | undefined {
+  try {
+    return JSON.parse(readFileSync('package.json', 'utf8')).version as string;
+  } catch {
+    return undefined;
+  }
+}
+
+function localGitSha(): string | undefined {
+  try {
+    return execSync('git rev-parse --short=8 HEAD').toString().trim();
+  } catch {
+    return undefined;
+  }
 }
 
 /**
@@ -80,6 +104,8 @@ export async function loadConfig(): Promise<AppConfig> {
     storeMode: (process.env.STORE_MODE as 'dynamo' | 'memory') || (isLocal ? 'memory' : 'dynamo'),
     platformBaseUrl: platformBaseUrl || 'https://gzops-api-dev.goalzeroapp.com',
     platformMode: (process.env.PLATFORM_MODE as 'live' | 'fake') || (isLocal ? 'fake' : 'live'),
+    version: process.env.APP_VERSION || localPkgVersion() || 'dev',
+    gitSha: process.env.GIT_SHA || localGitSha() || 'local',
     isLocal,
   };
   return config;
