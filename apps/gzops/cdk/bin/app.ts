@@ -30,9 +30,16 @@ const certArn =
     : 'arn:aws:acm:us-east-1:336507940372:certificate/4879fd85-38fe-45c5-8381-7feed27db266');
 const domainName = (app.node.tryGetContext('domainName') as string) || (stage === 'prod' ? 'gzops.goalzeroapp.com' : `gzops2-${stage}.goalzeroapp.com`);
 
+// The BFF reaches the platform API with SigV4 (IAM auth). It must hit the API's
+// RAW execute-api endpoint, NOT the gzops-api*.goalzeroapp.com CloudFront domain:
+// CloudFront rewrites the Host header (ALL_VIEWER_EXCEPT_HOST_HEADER), which breaks
+// the SigV4 signature (Host is signed) → 403. Signing against the execute-api host
+// matches what API Gateway validates. (api ids: dev 8pshkjrd6l / prod 8srtqkx3rl.)
 const platformBaseUrl =
   (app.node.tryGetContext('platformBaseUrl') as string) ||
-  (stage === 'prod' ? 'https://gzops-api.goalzeroapp.com' : `https://gzops-api-${stage}.goalzeroapp.com`);
+  (stage === 'prod'
+    ? 'https://8srtqkx3rl.execute-api.us-east-1.amazonaws.com'
+    : 'https://8pshkjrd6l.execute-api.us-east-1.amazonaws.com');
 
 new WebappStack(app, `GzWeb-Gzops-${stage}`, {
   env: { account, region: 'us-east-1' },
