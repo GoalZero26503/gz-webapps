@@ -187,6 +187,25 @@ class PlatformClient {
     }));
   }
 
+  // ── Artifacts (build outputs) ─────────────────────────────
+  /**
+   * Real build artifacts for a project (newest upload first). Per-env state is
+   * derived from the project's live rail: an artifact whose version+build matches
+   * what's deployed in an env shows `deployed`; envs the artifact targets show
+   * `eligible`; the rest `ineligible`. Pass the rail-enriched `project`.
+   */
+  async listArtifacts(project: Project): Promise<Artifact[]> {
+    if (this.isFake) return fakeArtifacts(project);
+    const res = await this.getJson<{ artifacts?: unknown[] }>(
+      `/projects/${encodeURIComponent(project.id)}/artifacts?limit=100`,
+    );
+    return (res.artifacts ?? [])
+      .map((a) => a as Record<string, unknown>)
+      .filter((a) => a.uploaded_at) // hide pending (not-yet-uploaded) rows
+      .map((a) => normalizeArtifact(a, project))
+      .sort((a, b) => (b.uploadedAt ?? '').localeCompare(a.uploadedAt ?? ''));
+  }
+
   // ── Platform build identity (GET /health) ─────────────────
   /** The backend's own version + git sha (sidebar footer). Cached via getJson;
    *  null if the platform is unreachable so the footer just omits the line. */
@@ -430,29 +449,87 @@ export const platform = new PlatformClient();
 // ── Pure derivations (shared by views) ──────────────────────
 
 /** Demo artifact list derived from a project's rail (build matrix rows). */
-export function artifactsFor(p: Project): Artifact[] {
-  const newest = p.rail?.dev ?? { v: 'v1.0.0' as string, b: undefined as number | undefined };
-  const mk = (suffix: string, kind: string, size: string, deployedIn: Env[]): Artifact => ({
-    name: `${p.id}.${suffix}.${newest.v}${'b' in newest && newest.b ? `.${newest.b}` : ''}.2ec53ed1.${kind.toLowerCase()}`,
-    kind,
+/** Human-readable byte size, e.g. 52978 → "51.7 KB". */
+function fmtBytes(n: unknown): string {
+  const b = typeof n === 'number' && n >= 0 ? n : 0;
+  if (!b) return '—';
+  const units = ['B', 'KB', 'MB', 'GB'];
+  let v = b;
+  let i = 0;
+  while (v >= 1024 && i < units.length - 1) {
+    v /= 1024;
+    i++;
+  }
+  return `${v >= 100 || i === 0 ? Math.round(v) : v.toFixed(1)} ${units[i]}`;
+}
+
+/** Artifact kind from filename extension (".bin" → "BIN"). */
+function kindFromName(name: string): string {
+  const ext = name.includes('.') ? name.slice(name.lastIndexOf('.') + 1) : '';
+  return ext ? ext.toUpperCase() : 'FILE';
+}
+
+/** Strip a leading "v" so "v2.6.6" and "2.6.6" compare equal. */
+const bareVersion = (v: unknown): string => String(v ?? '').replace(/^v/i, '');
+
+/** Per-env state for one artifact, from the project's live rail + the artifact's target envs. */
+function artifactEnvStatus(
+  raw: Record<string, unknown>,
+  project: Project,
+): Artifact['envs'] {
+  const targets = Array.isArray(raw.envs) ? (raw.envs as string[]) : [];
+  const eligible = (e: Env): boolean => targets.includes('*') || targets.includes(e);
+  const version = bareVersion(raw.version);
+  const build = typeof raw.build_number === 'number' ? raw.build_number : undefined;
+  return Object.fromEntries(
+    ENVS.map((e) => {
+      const cell = project.rail?.[e];
+      const deployed =
+        !!cell &&
+        !!version &&
+        bareVersion(cell.v) === version &&
+        (cell.b == null || build == null || cell.b === build);
+      return [e, deployed ? 'deployed' : eligible(e) ? 'eligible' : 'ineligible'];
+    }),
+  ) as Artifact['envs'];
+}
+
+function normalizeArtifact(raw: Record<string, unknown>, project: Project): Artifact {
+  const name = String(raw.name ?? '');
+  return {
+    name,
+    kind: kindFromName(name),
+    size: fmtBytes(raw.size),
+    uploadedAt: typeof raw.uploaded_at === 'string' ? raw.uploaded_at : undefined,
+    uploadedBy: typeof raw.uploaded_by === 'string' ? raw.uploaded_by : undefined,
+    version: typeof raw.version === 'string' ? raw.version : undefined,
+    buildNumber: typeof raw.build_number === 'number' ? raw.build_number : undefined,
+    hashId: typeof raw.hash_id === 'string' ? raw.hash_id : undefined,
+    envs: artifactEnvStatus(raw, project),
+  };
+}
+
+/** Local-dev (fake mode) artifacts so the BUILDS tab renders offline. */
+function fakeArtifacts(p: Project): Artifact[] {
+  const v = bareVersion(p.rail?.dev?.v ?? '1.0.0');
+  const at = '2026-06-18T15:43:18.000Z';
+  const mk = (suffix: string, ext: string, size: number): Record<string, unknown> => ({
+    name: `${p.id}.${suffix}.v${v}.1.84affa81.${ext}`,
     size,
-    envs: Object.fromEntries(
-      ENVS.map((e) => [
-        e,
-        deployedIn.includes(e)
-          ? 'deployed'
-          : e === 'prod' && p.type !== 'cloud'
-            ? 'eligible'
-            : ['dev', 'test', 'alpha', 'beta', 'stage'].includes(e)
-              ? 'eligible'
-              : 'ineligible',
-      ]),
-    ),
+    version: v,
+    build_number: 1,
+    hash_id: 'fake0000',
+    uploaded_at: at,
+    uploaded_by: 'ci-bot',
+    envs: ['*'],
   });
-  if (p.type === 'mobile') return [mk('ios.dev', 'IPA', '6.6 MB', ['dev']), mk('android.dev', 'AAB', '19.8 MB', ['dev']), mk('android.dev', 'APK', '50.7 MB', ['dev'])];
-  if (p.type === 'firmware-kit') return [mk('kit-bundle', 'ZIP', '4.1 MB', ['dev', 'test'])];
-  if (p.type === 'cloud') return [mk('serverless', 'ZIP', '12.2 MB', ['dev', 'test', 'stage'])];
-  return [mk('fw-ota', 'BIN', '1.2 MB', ['dev']), mk('fw-bundle', 'ZIP', '2.0 MB', ['dev'])];
+  const rows =
+    p.type === 'mobile'
+      ? [mk('ios', 'ipa', 6_920_000), mk('android', 'aab', 20_700_000)]
+      : p.type === 'cloud'
+        ? [mk('serverless', 'zip', 12_800_000)]
+        : [mk('fw-ota', 'bin', 52_978), mk('fw-bundle', 'zip', 37_449)];
+  return rows.map((r) => normalizeArtifact(r, p));
 }
 
 // ── Live response normalizers (platform snake_case → view types) ──

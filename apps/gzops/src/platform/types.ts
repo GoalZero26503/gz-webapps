@@ -192,6 +192,14 @@ export interface Artifact {
   name: string;
   kind: string;
   size: string;
+  /** When the artifact was uploaded (ISO 8601), from the platform. */
+  uploadedAt?: string;
+  uploadedBy?: string;
+  /** Version + build this artifact belongs to (for the deploy action + matching). */
+  version?: string;
+  buildNumber?: number;
+  /** Owning build hash. */
+  hashId?: string;
   /** Per-env deploy eligibility/state. */
   envs: Partial<Record<Env, 'deployed' | 'eligible' | 'ineligible'>>;
 }
