@@ -15,7 +15,7 @@ import { customElement, property, state } from 'lit/decorators.js';
 
 interface Pipeline { name: string; plugin: string; runner?: string; config?: Record<string, unknown> }
 interface ArtifactDef { id: string; name_pattern: string; build_pipeline: string; deploy_pipelines: string[]; envs?: string[] }
-interface KitComp { name: string; project: string; version?: string }
+interface KitComp { name: string; project: string; set?: 'iNode' | 'xNode'; slots?: string[]; version?: string }
 interface KitRelease { version?: string; build_targets?: string[]; manifest: { iNodes: Record<string, string>; xNodes?: Record<string, string> } }
 interface Kit { host_ids: string[]; components?: KitComp[]; releases: KitRelease[] }
 interface HealthCfg { url: string; environments?: string[]; overrides?: Record<string, string> }
@@ -38,6 +38,8 @@ export class GzDeployConfigEditor extends LitElement {
   @property({ attribute: 'save-url' }) saveUrl = '';
   @property({ attribute: 'cancel-url' }) cancelUrl = '';
   @property({ attribute: 'envs' }) envsAttr = 'dev,test,alpha,beta,stage,prod';
+  /** firmware-node projects available as component sources: JSON [{id,name}]. */
+  @property({ attribute: 'node-projects' }) nodeProjectsAttr = '[]';
 
   @state() private m!: Model;
   @state() private saving = false;
@@ -146,27 +148,51 @@ export class GzDeployConfigEditor extends LitElement {
     `);
   }
 
-  // ── Kit composer (the centerpiece) ────────────────────────
+  // ── Kit configuration (topology + component schema) ───────
+  private get nodeProjects(): { id: string; name: string }[] {
+    try { const a = JSON.parse(this.nodeProjectsAttr); return Array.isArray(a) ? a : []; } catch { return []; }
+  }
+
   private renderKit(): TemplateResult {
     const kit = this.m.kit!;
-    return this.section('Kit releases', html`
+    const nodes = this.nodeProjects;
+    return this.section('Kit configuration', html`
       <div class="label-caps">Host topology</div>
-      <div class="dc-sub"><input class="dc-in mono wide" placeholder="comma-separated host ids (H-…)" .value=${kit.host_ids.join(', ')}
-        @change=${(ev: Event) => { kit.host_ids = (ev.target as HTMLInputElement).value.split(',').map((s) => s.trim()).filter(Boolean); this.bump(); }} /></div>
+      <div class="small faint" style="margin-bottom:6px;">The hardware variants (Host IDs) this kit builds for.</div>
+      ${kit.host_ids.map((h, i) => html`
+        <div class="dc-row">
+          <input class="dc-in mono wide" placeholder="H-…" .value=${h}
+            @input=${(ev: Event) => { kit.host_ids[i] = (ev.target as HTMLInputElement).value.trim(); }} />
+          <button type="button" class="btn sm ghost" @click=${() => { kit.host_ids.splice(i, 1); this.bump(); }}>✕</button>
+        </div>`)}
+      <button type="button" class="btn sm" @click=${() => { kit.host_ids = [...kit.host_ids, '']; this.bump(); }}>+ Add Host ID</button>
 
-      <div class="label-caps" style="margin-top:14px;">Components</div>
+      <div class="label-caps" style="margin-top:16px;">Components</div>
+      <div class="small faint" style="margin-bottom:6px;">Each node-firmware slot and the project that supplies it. Versions are chosen per release, not here.</div>
       ${(kit.components ?? []).map((c, i) => html`
         <div class="dc-row">
-          <input class="dc-in" placeholder="name" .value=${c.name} @input=${(ev: Event) => { c.name = (ev.target as HTMLInputElement).value; }} />
-          <input class="dc-in mono" placeholder="node project id" .value=${c.project} @input=${(ev: Event) => { c.project = (ev.target as HTMLInputElement).value; }} />
-          <input class="dc-in mono" placeholder="version" .value=${c.version ?? ''} @input=${(ev: Event) => { c.version = (ev.target as HTMLInputElement).value; }} />
+          <input class="dc-in" placeholder="label (PCU)" .value=${c.name} @input=${(ev: Event) => { c.name = (ev.target as HTMLInputElement).value; }} />
+          <select class="dc-in mono" @change=${(ev: Event) => { c.project = (ev.target as HTMLSelectElement).value; this.bump(); }}>
+            <option value="" ?selected=${!c.project}>— node project —</option>
+            ${nodes.map((n) => html`<option value=${n.id} ?selected=${c.project === n.id}>${n.name}</option>`)}
+            ${c.project && !nodes.some((n) => n.id === c.project) ? html`<option value=${c.project} selected>${c.project}</option>` : ''}
+          </select>
+          <select class="dc-in" @change=${(ev: Event) => { c.set = (ev.target as HTMLSelectElement).value as 'iNode' | 'xNode'; this.bump(); }}>
+            <option value="iNode" ?selected=${c.set !== 'xNode'}>iNode</option>
+            <option value="xNode" ?selected=${c.set === 'xNode'}>xNode</option>
+          </select>
+          <input class="dc-in mono" placeholder="slots (A*-1)" .value=${(c.slots ?? []).join(', ')}
+            @input=${(ev: Event) => { c.slots = (ev.target as HTMLInputElement).value.split(',').map((s) => s.trim()).filter(Boolean); }} />
           <button type="button" class="btn sm ghost" @click=${() => { kit.components!.splice(i, 1); this.bump(); }}>✕</button>
         </div>`)}
-      <button type="button" class="btn sm" @click=${() => { kit.components = [...(kit.components ?? []), { name: '', project: '', version: '' }]; this.bump(); }}>+ Add component</button>
+      <button type="button" class="btn sm" @click=${() => { kit.components = [...(kit.components ?? []), { name: '', project: '', set: 'iNode', slots: [] }]; this.bump(); }}>+ Add component</button>
 
-      <div class="label-caps" style="margin-top:16px;">Releases</div>
-      ${kit.releases.map((r, ri) => this.renderRelease(kit, r, ri))}
-      <button type="button" class="btn sm" @click=${() => { kit.releases = [...kit.releases, { version: '', build_targets: ['*'], manifest: { iNodes: {} } }]; this.bump(); }}>+ Add release</button>
+      <details style="margin-top:18px;">
+        <summary class="label-caps" style="cursor:pointer;">Advanced — raw release manifests (${kit.releases.length})</summary>
+        <div class="small faint" style="margin:6px 0;">These are managed via Create Release. Edit here only as an escape hatch.</div>
+        ${kit.releases.map((r, ri) => this.renderRelease(kit, r, ri))}
+        <button type="button" class="btn sm" @click=${() => { kit.releases = [...kit.releases, { version: '', build_targets: ['*'], manifest: { iNodes: {} } }]; this.bump(); }}>+ Add release</button>
+      </details>
     `, true);
   }
 

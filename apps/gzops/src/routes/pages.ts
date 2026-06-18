@@ -183,6 +183,10 @@ export async function pageRoutes(app: FastifyInstance): Promise<void> {
       deployVersions,
       editing,
       deployConfigJson: deployConfig ? JSON.stringify(deployConfig) : '{}',
+      // firmware-node projects selectable as kit component sources (editor dropdown)
+      nodeProjectsJson: JSON.stringify(
+        projects.filter((p) => p.type === 'firmware-node').map((p) => ({ id: p.id, name: p.name })),
+      ),
       canDeploy: request.user!.permissions.includes('deploys:create'),
       canEditConfig,
     });
