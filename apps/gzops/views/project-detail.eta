@@ -81,7 +81,7 @@
     <div style="display:flex;align-items:center;gap:8px;"><h1 style="font-size:19px;margin:0;">Edit deploy config</h1>
       <span class="badge info"><%= dc.version ? ('from v' + dc.version) : 'new' %></span></div>
   </div>
-  <gz-deploy-config-editor config="<%= it.deployConfigJson %>" project-id="<%= it.project.id %>" project-type="<%= it.project.type %>" save-url="/cicd/projects/<%= it.project.id %>/config" cancel-url="/cicd/projects/<%= it.project.id %>?tab=config" envs="<%= it.ENVS.join(',') %>"></gz-deploy-config-editor>
+  <gz-deploy-config-editor config="<%= it.deployConfigJson %>" project-id="<%= it.project.id %>" project-type="<%= it.project.type %>" save-url="/cicd/projects/<%= it.project.id %>/config" cancel-url="/cicd/projects/<%= it.project.id %>?tab=config" envs="<%= it.ENVS.join(',') %>" node-projects="<%= it.nodeProjectsJson %>"></gz-deploy-config-editor>
   <% } else { %>
   <div class="page-head" style="margin-bottom:14px;">
     <div style="display:flex;align-items:center;gap:8px;">
@@ -122,25 +122,41 @@
       </tbody></table></div></div>
 
   <% if (dc.kit) { %>
-    <div class="card"><div class="card-head"><span class="accent-bar"></span><h2>Kit releases</h2><span class="grow"></span><span class="small faint"><%= dc.kit.host_ids.length %> hosts · <%= dc.kit.releases.length %> releases</span></div>
+    <div class="card"><div class="card-head"><span class="accent-bar"></span><h2>Kit configuration</h2><span class="grow"></span><span class="small faint"><%= dc.kit.host_ids.length %> hosts · <%= (dc.kit.components||[]).length %> components</span></div>
       <div class="card-body">
         <div class="label-caps" style="margin-bottom:6px;">Host topology</div>
         <div class="chips" style="margin-bottom:14px;"><% dc.kit.host_ids.forEach(function(h){ %><span class="chip mono"><%= h %></span><% }) %></div>
+
+        <div class="label-caps" style="margin-bottom:6px;">Components</div>
         <% if ((dc.kit.components||[]).length) { %>
-          <div class="label-caps" style="margin-bottom:6px;">Components</div>
-          <div style="margin-bottom:14px;"><% dc.kit.components.forEach(function(c){ %><div class="kv"><span class="k"><%= c.name %> <span class="small faint mono"><%= c.project %></span></span><span class="v mono"><%= c.version || '—' %></span></div><% }) %></div>
+          <table class="tbl" style="margin-bottom:14px;"><thead><tr><th>Component</th><th>Node project</th><th>Set</th><th>Slots</th></tr></thead><tbody>
+            <% dc.kit.components.forEach(function(c){ %>
+              <tr>
+                <td><%= c.name || '—' %></td>
+                <td class="mono small"><%= c.project || '—' %></td>
+                <td><span class="chip <%= c.set === 'xNode' ? '' : 'chip-on' %>"><%= c.set || 'iNode' %></span></td>
+                <td class="mono small"><%= (c.slots && c.slots.length) ? c.slots.join(', ') : '—' %></td>
+              </tr>
+            <% }) %>
+          </tbody></table>
+        <% } else { %>
+          <div class="small faint" style="margin-bottom:14px;">No components defined yet — add them via <span class="mono">Edit deploy config</span>.</div>
         <% } %>
-        <div class="label-caps" style="margin-bottom:6px;">Releases</div>
-        <% dc.kit.releases.forEach(function(r){ %>
-          <div class="card" style="margin-bottom:10px;"><div class="card-body">
-            <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap;"><span class="badge info">v<%= r.version || '—' %></span>
-              <span class="small faint">hosts:</span><% ;(r.build_targets||['*']).forEach(function(t){ %><span class="chip mono"><%= t %></span><% }) %></div>
-            <table class="tbl"><thead><tr><th>Slot</th><th>Version</th></tr></thead><tbody>
-              <% Object.keys(r.manifest.iNodes||{}).forEach(function(slot){ %><tr><td class="mono"><%= slot %></td><td class="mono"><%= r.manifest.iNodes[slot] %></td></tr><% }) %>
-              <% Object.keys(r.manifest.xNodes||{}).forEach(function(slot){ %><tr><td class="mono"><%= slot %> <span class="small faint">(xNode)</span></td><td class="mono"><%= r.manifest.xNodes[slot] %></td></tr><% }) %>
-            </tbody></table>
-          </div></div>
-        <% }) %>
+
+        <details>
+          <summary class="label-caps" style="cursor:pointer;">Derived release manifests (<%= dc.kit.releases.length %>)</summary>
+          <div class="small faint" style="margin:6px 0;">Per-host slot→version manifests. Managed via Create Release; shown here for verification.</div>
+          <% dc.kit.releases.forEach(function(r){ %>
+            <div class="card" style="margin-bottom:10px;"><div class="card-body">
+              <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap;"><span class="badge info">v<%= r.version || '—' %></span>
+                <span class="small faint">hosts:</span><% ;(r.build_targets||['*']).forEach(function(t){ %><span class="chip mono"><%= t %></span><% }) %></div>
+              <table class="tbl"><thead><tr><th>Slot</th><th>Version</th></tr></thead><tbody>
+                <% Object.keys(r.manifest.iNodes||{}).forEach(function(slot){ %><tr><td class="mono"><%= slot %></td><td class="mono"><%= r.manifest.iNodes[slot] %></td></tr><% }) %>
+                <% Object.keys(r.manifest.xNodes||{}).forEach(function(slot){ %><tr><td class="mono"><%= slot %> <span class="small faint">(xNode)</span></td><td class="mono"><%= r.manifest.xNodes[slot] %></td></tr><% }) %>
+              </tbody></table>
+            </div></div>
+          <% }) %>
+        </details>
       </div></div>
   <% } %>
 
