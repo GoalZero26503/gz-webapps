@@ -153,9 +153,22 @@ export async function pageRoutes(app: FastifyInstance): Promise<void> {
     ]);
     if (!project) return reply.code(404).view('not-found.eta', { ...(await chrome(request, 'cicd', 'projects')), title: 'Not found', what: 'Project' });
     const tab = ['builds', 'config'].includes(request.query.tab ?? '') ? request.query.tab! : 'deployment';
-    // The component matrix only references this project's own (already-enriched)
-    // state; no need to fan out env-state for every platform project.
-    const projects = [project];
+    // Firmware-kit Components rail: the kit's components live in its deploy-config
+    // schema (kit.components). Map them onto the project and pull each node
+    // project's live per-env versions so the matrix shows real data (not empty).
+    let componentProjects: Project[] = [];
+    if (project.type === 'firmware-kit' && tab === 'deployment') {
+      const dc = await platform.getDeployConfig(project.id).catch(() => null);
+      const comps = dc?.kit?.components ?? [];
+      project.components = comps
+        .filter((c) => c.project)
+        .map((c) => ({ label: c.name || c.project, projectId: c.project }));
+      const ids = [...new Set(project.components.map((c) => c.projectId))];
+      componentProjects = ids.length ? await platform.getProjectsByIds(ids, { withState: true }) : [];
+    }
+    // The component matrix references this project plus its component node
+    // projects (enriched with env-state) so each row shows its deployed versions.
+    const projects = [project, ...componentProjects];
     const latestByEnv: Partial<Record<Env, string>> = {};
     for (const e of ENVS) {
       const d = deployments.find((x) => x.env === e);
