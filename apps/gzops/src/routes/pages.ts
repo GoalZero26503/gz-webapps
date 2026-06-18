@@ -1,6 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import { requireAuth, requirePermission } from '../auth/plugin.js';
-import { artifactsFor, platform, type DeployConfigInput } from '../platform/client.js';
+import { platform, type DeployConfigInput } from '../platform/client.js';
 import { ENVS, type Env, type Project } from '../platform/types.js';
 import { programs as programsTable } from '../store/repo.js';
 import type { Program } from '../store/types.js';
@@ -8,6 +8,8 @@ import { chrome } from '../views/chrome.js';
 import { programHealth } from '../views/helpers.js';
 
 const PAGE_SIZE = 6;
+/** BUILDS-tab artifact rows per page (HTMX load-more appends the next batch). */
+const ARTIFACT_PAGE = 20;
 
 const byId = (projects: Project[]): Record<string, Project> =>
   Object.fromEntries(projects.map((p) => [p.id, p]));
@@ -159,7 +161,8 @@ export async function pageRoutes(app: FastifyInstance): Promise<void> {
       const d = deployments.find((x) => x.env === e);
       if (d) latestByEnv[e] = d.id;
     }
-    // Deploy-config is only needed for the CONFIG tab — fetch lazily.
+    // Artifacts (BUILDS tab) and deploy-config (CONFIG tab) are fetched lazily.
+    const allArtifacts = tab === 'builds' ? await platform.listArtifacts(project) : [];
     const [deployConfig, deployVersions] = tab === 'config'
       ? await Promise.all([platform.getDeployConfig(project.id), platform.getDeployConfigVersions(project.id)])
       : [null, []];
@@ -172,7 +175,9 @@ export async function pageRoutes(app: FastifyInstance): Promise<void> {
       projectsById: byId(projects),
       deployments,
       latestByEnv,
-      artifacts: artifactsFor(project),
+      artifacts: allArtifacts.slice(0, ARTIFACT_PAGE),
+      artifactTotal: allArtifacts.length,
+      artifactNextOffset: allArtifacts.length > ARTIFACT_PAGE ? ARTIFACT_PAGE : null,
       tab,
       deployConfig,
       deployVersions,
@@ -182,6 +187,27 @@ export async function pageRoutes(app: FastifyInstance): Promise<void> {
       canEditConfig,
     });
   });
+
+  // HTMX "load more" for the BUILDS artifact list — returns the next page of rows
+  // plus a fresh load-more button (which swaps itself out when the list is exhausted).
+  app.get<{ Params: { id: string }; Querystring: { offset?: string } }>(
+    '/cicd/projects/:id/artifacts',
+    { preHandler: requireAuth },
+    async (request, reply) => {
+      const project = await platform.getProject(request.params.id);
+      if (!project) return reply.code(404).send('');
+      const offset = Math.max(0, parseInt(request.query.offset ?? '0', 10) || 0);
+      const all = await platform.listArtifacts(project);
+      const page = all.slice(offset, offset + ARTIFACT_PAGE);
+      const nextOffset = offset + ARTIFACT_PAGE < all.length ? offset + ARTIFACT_PAGE : null;
+      return reply.view('partials/artifact-rows.eta', {
+        artifacts: page,
+        project,
+        artifactNextOffset: nextOffset,
+        canDeploy: request.user!.permissions.includes('deploys:create'),
+      });
+    },
+  );
 
   // Save a new deploy-config version (Lit editor POSTs JSON here).
   app.post<{ Params: { id: string }; Body: DeployConfigInput }>(

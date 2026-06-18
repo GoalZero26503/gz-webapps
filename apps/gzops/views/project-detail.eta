@@ -62,33 +62,18 @@
   </div></div>
 <% } else if (it.tab === 'builds') { %>
   <div id="deploy-tile"></div>
-  <div class="card"><div class="card-head"><span class="accent-bar"></span><h2>Artifacts</h2><span class="grow"></span><span class="small faint"><%= it.artifacts.length %> artifacts · newest first</span></div>
+  <div class="card"><div class="card-head"><span class="accent-bar"></span><h2>Artifacts</h2><span class="grow"></span><span class="small faint"><%= it.artifactTotal %> artifact<%= it.artifactTotal === 1 ? '' : 's' %> · newest first</span></div>
+    <% if (it.artifactTotal === 0) { %>
+      <div class="card-body"><div class="small faint">No artifacts uploaded yet for this project.</div></div>
+    <% } else { %>
     <div class="card-body flush"><table class="tbl">
       <thead><tr><th>Artifact</th><% it.ENVS.forEach(function (e) { %><th style="text-align:center;"><%= e %></th><% }) %></tr></thead>
       <tbody>
-        <% it.artifacts.forEach(function (a) { %>
-          <tr>
-            <td><div class="mono" style="font-size:12px;"><%= a.name %></div><div class="small faint"><%= a.size %> · <%= a.kind %></div></td>
-            <% it.ENVS.forEach(function (e) { %>
-              <% var st = a.envs[e]; %>
-              <td style="text-align:center;">
-                <% if (st === 'deployed') { %><span class="badge ok">✓</span>
-                <% } else if (st === 'eligible') { %>
-                  <% if (it.canDeploy) { %>
-                    <form hx-post="/cicd/deploy" hx-target="#deploy-tile" hx-swap="innerHTML" style="display:inline;">
-                      <input type="hidden" name="projectId" value="<%= it.project.id %>" />
-                      <input type="hidden" name="version" value="<%= depVer %>" />
-                      <input type="hidden" name="env" value="<%= e %>" />
-                      <button class="btn sm" type="submit">Deploy</button>
-                    </form>
-                  <% } else { %><span class="faint">—</span><% } %>
-                <% } else { %><span class="faint" style="opacity:.35;">·</span><% } %>
-              </td>
-            <% }) %>
-          </tr>
-        <% }) %>
+        <%~ include('partials/artifact-rows', it) %>
       </tbody>
-    </table></div></div>
+    </table></div>
+    <% } %>
+  </div>
 <% } else if (it.tab === 'config') { %>
   <% var dc = it.deployConfig; %>
   <% if (it.editing) { %>

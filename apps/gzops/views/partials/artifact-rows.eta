@@ -1,0 +1,35 @@
+<% it.artifacts.forEach(function (a) { %>
+  <tr>
+    <td>
+      <div class="mono" style="font-size:12px;"><%= a.name %></div>
+      <div class="small faint">
+        <%= a.size %> · <%= a.kind %><% if (a.version) { %> · v<%= a.version %><% if (a.buildNumber != null) { %>.<%= a.buildNumber %><% } %><% } %>
+        <% if (a.uploadedAt) { %> · <span title="<%= a.uploadedAt %><% if (a.uploadedBy) { %> · <%= a.uploadedBy %><% } %>"><%~ it.timeAgo(a.uploadedAt) %></span><% } %>
+      </div>
+    </td>
+    <% it.ENVS.forEach(function (e) { %>
+      <% var st = a.envs[e]; %>
+      <td style="text-align:center;">
+        <% if (st === 'deployed') { %><span class="badge ok">✓</span>
+        <% } else if (st === 'eligible') { %>
+          <% if (it.canDeploy) { %>
+            <form hx-post="/cicd/deploy" hx-target="#deploy-tile" hx-swap="innerHTML" style="display:inline;">
+              <input type="hidden" name="projectId" value="<%= it.project.id %>" />
+              <input type="hidden" name="version" value="<%= a.version || '' %>" />
+              <input type="hidden" name="env" value="<%= e %>" />
+              <button class="btn sm" type="submit">Deploy</button>
+            </form>
+          <% } else { %><span class="faint">—</span><% } %>
+        <% } else { %><span class="faint" style="opacity:.35;">·</span><% } %>
+      </td>
+    <% }) %>
+  </tr>
+<% }) %>
+<% if (it.artifactNextOffset !== null && it.artifactNextOffset !== undefined) { %>
+  <tr id="artifact-more">
+    <td colspan="<%= it.ENVS.length + 1 %>" style="text-align:center;">
+      <button class="btn sm" hx-get="/cicd/projects/<%= it.project.id %>/artifacts?offset=<%= it.artifactNextOffset %>"
+              hx-target="#artifact-more" hx-swap="outerHTML">Load more</button>
+    </td>
+  </tr>
+<% } %>
