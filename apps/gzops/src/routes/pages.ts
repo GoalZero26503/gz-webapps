@@ -196,9 +196,15 @@ export async function pageRoutes(app: FastifyInstance): Promise<void> {
       deployVersions,
       editing,
       deployConfigJson: deployConfig ? JSON.stringify(deployConfig) : '{}',
-      // firmware-node projects selectable as kit component sources (editor dropdown)
+      // Every firmware-node project is selectable as a kit component source. Sourced
+      // from the full project list (cached) — NOT `projects`, which here is just the
+      // kit + its current components and would leave the editor dropdown empty.
       nodeProjectsJson: JSON.stringify(
-        projects.filter((p) => p.type === 'firmware-node').map((p) => ({ id: p.id, name: p.name })),
+        project.type === 'firmware-kit'
+          ? (await platform.listProjects())
+              .filter((p) => p.type === 'firmware-node')
+              .map((p) => ({ id: p.id, name: p.name }))
+          : [],
       ),
       canDeploy: request.user!.permissions.includes('deploys:create'),
       canEditConfig,
