@@ -11,6 +11,8 @@ import { ENVS, type Deployment, type Env, type Project, type Rail, type RailCell
 
 type ProjectsById = Record<string, Project>;
 type NavFor = (env: Env) => string | null;
+/** Channel-aware nav for the kit channel rail: each tile links to the latest deployment of THAT channel+env. */
+type ChannelNavFor = (channel: string, env: Env) => string | null;
 
 export function esc(s: unknown): string {
   return String(s == null ? '' : s).replace(/[&<>"']/g, (c) =>
@@ -69,9 +71,9 @@ export function railSkeleton(): string {
   return `<div class="rail-scroll">${envHeader(false)}<div class="rail">${ENVS.map(() => `<div class="cell"><div class="v faint">…</div></div>`).join('')}</div></div>`;
 }
 
-export function channelRail(channels: Record<string, Rail>, navFor?: NavFor): string {
+export function channelRail(channels: Record<string, Rail>, navFor?: ChannelNavFor): string {
   const rows = Object.entries(channels)
-    .map(([name, envs]) => `<span class="env-label">${esc(name)}</span>${ENVS.map((e) => cell(envs[e], navFor ? navFor(e) : null)).join('')}`)
+    .map(([name, envs]) => `<span class="env-label">${esc(name)}</span>${ENVS.map((e) => cell(envs[e], navFor ? navFor(name, e) : null)).join('')}`)
     .join('');
   return `<div class="rail-scroll">${envHeader(true)}<div class="rail labeled">${rows}</div></div>`;
 }
