@@ -44,9 +44,27 @@ export class GzDeployConfigEditor extends LitElement {
   @state() private m!: Model;
   @state() private saving = false;
   @state() private error = '';
+  /** Which section descriptions are expanded (keyed by section title). */
+  @state() private infoOpen = new Set<string>();
 
   // Light DOM so global app styles apply.
   protected createRenderRoot(): HTMLElement { return this; }
+
+  /**
+   * Section description: a one-line summary across the full width, with an ⓘ
+   * toggle that reveals the full detail inline (keeps the form compact while
+   * the detail stays one click away).
+   */
+  private infoDesc(key: string, short: string, full?: string | TemplateResult): TemplateResult {
+    const open = this.infoOpen.has(key);
+    const toggle = () => { open ? this.infoOpen.delete(key) : this.infoOpen.add(key); this.infoOpen = new Set(this.infoOpen); };
+    return html`<div class="dc-desc">
+      <div class="dc-desc-line"><span class="small faint">${short}</span>${full
+        ? html`<button type="button" class="dc-info" title=${open ? 'Hide details' : 'More'} aria-expanded=${open} @click=${toggle}>${open ? '×' : 'ⓘ'}</button>`
+        : nothing}</div>
+      ${open && full ? html`<div class="small faint dc-desc-full">${full}</div>` : nothing}
+    </div>`;
+  }
 
   private get allEnvs(): string[] { return this.envsAttr.split(',').map((s) => s.trim()).filter(Boolean); }
 
@@ -93,8 +111,8 @@ export class GzDeployConfigEditor extends LitElement {
   }
 
   // ── Section renderers ─────────────────────────────────────
-  private section(title: string, body: TemplateResult, accent = false, desc?: string): TemplateResult {
-    return html`<div class="card"><div class="card-head">${accent ? html`<span class="accent-bar"></span>` : nothing}<h2>${title}</h2></div><div class="card-body">${desc ? html`<div class="small faint" style="margin:-2px 0 12px;max-width:64ch;">${desc}</div>` : nothing}${body}</div></div>`;
+  private section(title: string, body: TemplateResult, accent = false, desc?: { short: string; full?: string | TemplateResult }): TemplateResult {
+    return html`<div class="card"><div class="card-head">${accent ? html`<span class="accent-bar"></span>` : nothing}<h2>${title}</h2></div><div class="card-body">${desc ? this.infoDesc(title, desc.short, desc.full) : nothing}${body}</div></div>`;
   }
 
   /** Env toggle chips — selected show a ✓ and turn green (matches the Create Release UI). */
@@ -107,7 +125,10 @@ export class GzDeployConfigEditor extends LitElement {
     return this.section('Environments', this.envToggles(this.m.environments, (e) => {
       this.m.environments = this.m.environments.includes(e) ? this.m.environments.filter((x) => x !== e) : [...this.m.environments, e];
       this.bump();
-    }), true, 'Which deployment environments this project targets, in promotion order (dev → test → alpha → beta → stage → prod). A release can only be sent to an environment that is enabled here.');
+    }), true, {
+      short: 'Which deployment environments this project targets, in promotion order (dev → test → alpha → beta → stage → prod).',
+      full: 'A release can only be sent to an environment that is enabled here.',
+    });
   }
 
   private renderPipelines(): TemplateResult {
@@ -123,8 +144,10 @@ export class GzDeployConfigEditor extends LitElement {
           <button type="button" class="btn sm ghost" @click=${() => { this.m.deploy_pipelines.splice(i, 1); this.bump(); }}>✕</button>
         </div>`)}
       <button type="button" class="btn sm" @click=${() => { this.m.deploy_pipelines = [...this.m.deploy_pipelines, { name: '', plugin: 's3', config: {} }]; this.bump(); }}>+ Add pipeline</button>
-    `, false,
-      'A named delivery method = a plugin plus its config. It defines HOW a built artifact (or kit manifest) reaches an environment — e.g. firmware-kit-deploy publishes per-host manifests to an S3 channel, testflight/playstore push a mobile build, github-action dispatches a workflow. Artifact routing and kit channels reference these pipelines by name. Each row: a name, the plugin, and a JSON config blob (bucket, channel, role_arn, …).');
+    `, false, {
+      short: 'A named delivery method (a plugin + its config) — defines HOW a built artifact or kit manifest reaches an environment.',
+      full: 'e.g. firmware-kit-deploy publishes per-host manifests to an S3 channel, testflight/playstore push a mobile build, github-action dispatches a workflow. Artifact routing and kit channels reference these pipelines by name. Each row: a name, the plugin, and a JSON config blob (bucket, channel, role_arn, …).',
+    });
   }
 
   private renderArtifacts(): TemplateResult {
@@ -147,8 +170,10 @@ export class GzDeployConfigEditor extends LitElement {
             ${this.envToggles(a.envs ?? [], (e) => { a.envs = (a.envs ?? []).includes(e) ? (a.envs ?? []).filter((x) => x !== e) : [...(a.envs ?? []), e]; this.bump(); })}</div>
         </div>`)}
       <button type="button" class="btn sm" @click=${() => { this.m.artifacts = [...this.m.artifacts, { id: '', name_pattern: '', build_pipeline: '', deploy_pipelines: [], envs: ['*'] }]; this.bump(); }}>+ Add artifact</button>
-    `, false,
-      'Routes build outputs to deploy pipelines. Each rule matches the files a build produces by filename glob (name_pattern, e.g. *.zip or pcu-*.bin), names the build pipeline that produced them, and sends matches through the chosen deploy pipeline(s) — limited to the selected environments (* = all). This is what connects "a build finished" to "deploy it here, this way". Firmware-kit projects publish manifests per channel and usually need no artifact rules.');
+    `, false, {
+      short: 'Routes build outputs to deploy pipelines — connects “a build finished” to “deploy it here, this way”.',
+      full: 'Each rule matches the files a build produces by filename glob (name_pattern, e.g. *.zip or pcu-*.bin), names the build pipeline that produced them, and sends matches through the chosen deploy pipeline(s) — limited to the selected environments (* = all). Firmware-kit projects publish manifests per channel and usually need no artifact rules.',
+    });
   }
 
   // ── Kit configuration (topology + component schema) ───────
@@ -171,11 +196,10 @@ export class GzDeployConfigEditor extends LitElement {
       <button type="button" class="btn sm" @click=${() => { kit.host_ids = [...kit.host_ids, '']; this.bump(); }}>+ Add Host ID</button>
 
       <div class="label-caps" style="margin-top:16px;">Components</div>
-      <div class="small faint" style="margin-bottom:6px;max-width:72ch;">Each node-firmware slot in the kit and the project that supplies its binary. Versions are chosen per release, not here.</div>
-      <div class="small faint" style="margin-bottom:10px;max-width:72ch;border-left:2px solid var(--border);padding-left:10px;">
-        <b>Set</b> — <b>iNode</b>: a board inside the host that derives its node ID from the host (use a glob slot). <b>xNode</b>: a self-contained accessory with its own SKU (use explicit node IDs).<br/>
-        <b>Slots</b> — comma-separated. For iNodes use a glob like <span class="mono">A*-1</span>: the <span class="mono">*</span> fills in the host's own board variant, so on host <span class="mono">H-37500-<b>A20</b>-…</span> the slot <span class="mono">A*-1</span> resolves to node <span class="mono">N-37500-A20-1</span> (a host without that board just skips it). For xNodes list the full node ID(s) verbatim — e.g. <span class="mono">N-23110-A2-1</span> — no wildcards; add one entry per hardware rev you want to advertise.
-      </div>
+      ${this.infoDesc('Components',
+        'Each node-firmware slot in the kit and the project that supplies its binary. Versions are chosen per release, not here.',
+        html`<b>Set</b> — <b>iNode</b>: a board inside the host that derives its node ID from the host (use a glob slot). <b>xNode</b>: a self-contained accessory with its own SKU (use explicit node IDs).<br/>
+        <b>Slots</b> — comma-separated. For iNodes use a glob like <span class="mono">A*-1</span>: the <span class="mono">*</span> fills in the host's own board variant, so on host <span class="mono">H-37500-<b>A20</b>-…</span> the slot <span class="mono">A*-1</span> resolves to node <span class="mono">N-37500-A20-1</span> (a host without that board just skips it). For xNodes list the full node ID(s) verbatim — e.g. <span class="mono">N-23110-A2-1</span> — no wildcards; add one entry per hardware rev you want to advertise.`)}
       ${(kit.components ?? []).map((c, i) => html`
         <div class="dc-row">
           <input class="dc-in" placeholder="label (PCU)" .value=${c.name} @input=${(ev: Event) => { c.name = (ev.target as HTMLInputElement).value; }} />

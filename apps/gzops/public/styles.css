@@ -327,6 +327,16 @@ button.chip.chip-on { background: var(--gz-green-dim); border-color: var(--gz-gr
 .chip.chip-off { opacity: 0.4; }
 
 /* Deploy-config editor (Lit, light DOM) */
+/* Section descriptions: one-line summary (full width) + ⓘ toggle for detail */
+.dc-desc { margin: -2px 0 12px; width: 100%; }
+.dc-desc-line { display: flex; align-items: baseline; gap: 8px; }
+.dc-desc-full { margin-top: 6px; line-height: 1.55; }
+.dc-info {
+  flex: none; cursor: pointer; border: 1px solid var(--border); background: var(--bg-elevated);
+  color: var(--text-secondary); border-radius: 999px; min-width: 18px; height: 18px; padding: 0 5px;
+  font-size: 11px; line-height: 1; display: inline-flex; align-items: center; justify-content: center;
+}
+.dc-info:hover { color: var(--text-primary); border-color: var(--gz-green); }
 .dc-in { background: var(--bg-primary); border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--text-primary); padding: 6px 9px; font-size: 13px; min-width: 0; }
 .dc-in.mono { font-family: var(--font-mono); font-size: 12px; }
 .dc-in.wide { width: 100%; }
