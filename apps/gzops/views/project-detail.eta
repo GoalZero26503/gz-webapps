@@ -7,7 +7,7 @@
     <div style="display:flex;align-items:center;gap:10px;"><h1><%= it.project.name %></h1><%~ it.typeBadge(it.project.type) %></div>
     <div class="sub mono small"><%= it.project.repo %></div>
   </div>
-  <% if (it.project.type === 'firmware-kit' && it.canDeploy) { %>
+  <% if (it.project.type === 'firmware-kit' && it.canDeploy && it.tab === 'deployment') { %>
     <a class="btn btn-primary" href="/cicd/projects/<%= it.project.id %>/release/new"><i class="icon-rocket"></i> Create release</a>
   <% } %>
 </div>
