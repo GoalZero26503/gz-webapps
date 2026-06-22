@@ -26,6 +26,27 @@ function nextKitVersion(versions: string[]): string {
 const byId = (projects: Project[]): Record<string, Project> =>
   Object.fromEntries(projects.map((p) => [p.id, p]));
 
+/**
+ * Firmware-kit Components rail enrichment. A kit's components live in its
+ * deploy-config schema (kit.components), not on the project record — so map them
+ * onto each kit project's `.components` and fetch the referenced node projects
+ * (with live per-env state) so the component matrix renders real versions instead
+ * of "0 nodes". Returns the node projects to merge into projectsById. Shared by
+ * the project detail page and the program dashboard (both render the matrix).
+ */
+async function enrichKitComponents(kitProjects: Project[]): Promise<Project[]> {
+  const nodeIds = new Set<string>();
+  for (const project of kitProjects) {
+    if (project.type !== 'firmware-kit') continue;
+    const dc = await platform.getDeployConfig(project.id).catch(() => null);
+    project.components = (dc?.kit?.components ?? [])
+      .filter((c) => c.project)
+      .map((c) => ({ label: c.name || c.project, projectId: c.project }));
+    for (const c of project.components) nodeIds.add(c.projectId);
+  }
+  return nodeIds.size ? platform.getProjectsByIds([...nodeIds], { withState: true }) : [];
+}
+
 /** Compact a /health gzopsHash for a tile: short hash, or the date when it's a
  *  `local-<unix>` fallback (no gzops hash was computed for that deploy). */
 function formatHash(h?: string): string {
@@ -121,7 +142,10 @@ export async function pageRoutes(app: FastifyInstance): Promise<void> {
       platform.getProjectsByIds(memberIds, { withState: true }),
       platform.listDeploymentsAcross(memberIds),
     ]);
-    const projById = byId(projects);
+    // Enrich kit projects so the program's Components matrix renders (it pulls
+    // node versions from projectsById, same as the project detail page).
+    const componentProjects = await enrichKitComponents(projects.filter((p) => p.type === 'firmware-kit'));
+    const projById = byId([...projects, ...componentProjects]);
     return reply.view('program-dashboard.eta', {
       ...(await chrome(request, 'dashboard', program.id)),
       title: program.name,
@@ -165,19 +189,10 @@ export async function pageRoutes(app: FastifyInstance): Promise<void> {
     ]);
     if (!project) return reply.code(404).view('not-found.eta', { ...(await chrome(request, 'cicd', 'projects')), title: 'Not found', what: 'Project' });
     const tab = ['builds', 'config'].includes(request.query.tab ?? '') ? request.query.tab! : 'deployment';
-    // Firmware-kit Components rail: the kit's components live in its deploy-config
-    // schema (kit.components). Map them onto the project and pull each node
-    // project's live per-env versions so the matrix shows real data (not empty).
-    let componentProjects: Project[] = [];
-    if (project.type === 'firmware-kit' && tab === 'deployment') {
-      const dc = await platform.getDeployConfig(project.id).catch(() => null);
-      const comps = dc?.kit?.components ?? [];
-      project.components = comps
-        .filter((c) => c.project)
-        .map((c) => ({ label: c.name || c.project, projectId: c.project }));
-      const ids = [...new Set(project.components.map((c) => c.projectId))];
-      componentProjects = ids.length ? await platform.getProjectsByIds(ids, { withState: true }) : [];
-    }
+    // Firmware-kit Components rail — populate kit.components + their node projects.
+    const componentProjects = project.type === 'firmware-kit' && tab === 'deployment'
+      ? await enrichKitComponents([project])
+      : [];
     // The component matrix references this project plus its component node
     // projects (enriched with env-state) so each row shows its deployed versions.
     const projects = [project, ...componentProjects];
