@@ -1,6 +1,7 @@
 <% layout('layout') %>
 <% var depVer = (it.project.rail && it.project.rail.dev) ? it.project.rail.dev.v : 'latest'; %>
 <% var navFor = function (e) { return it.latestByEnv[e] ? '/cicd/deployments/' + it.latestByEnv[e] : null; }; %>
+<% var navForChannel = function (channel, e) { var m = it.latestByChannelEnv && it.latestByChannelEnv[channel]; return (m && m[e]) ? '/cicd/deployments/' + m[e] : null; }; %>
 
 <div class="page-head">
   <div>
@@ -23,7 +24,7 @@
     <div class="card-head"><span class="accent-bar"></span><h2>Deployed</h2></div>
     <div class="card-body">
       <% if (it.project.type === 'firmware-kit' && it.project.channels) { %>
-        <%~ it.channelRail(it.project.channels, navFor) %>
+        <%~ it.channelRail(it.project.channels, navForChannel) %>
       <% } else { %>
         <%~ it.rail(it.project.rail || {}, true, navFor) %>
       <% } %>

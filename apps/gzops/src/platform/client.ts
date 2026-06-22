@@ -618,7 +618,7 @@ function railState(status?: string): 'live' | 'deploying' | 'failed' {
   return 'live';
 }
 
-const channelLabel = (p?: string): string =>
+export const channelLabel = (p?: string): string =>
   (p ?? 'default').replace(/-manifests?$/i, '').replace(/[-_]/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
 const storeLabel = (p?: string): string =>
   p === 'play' ? 'Play' : p === 'app-store' || p === 'testflight' ? 'TestFlight' : channelLabel(p);

@@ -1,6 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import { requireAuth, requirePermission } from '../auth/plugin.js';
-import { platform, type DeployConfigInput } from '../platform/client.js';
+import { platform, channelLabel, type DeployConfigInput } from '../platform/client.js';
 import { ENVS, type Env, type Project } from '../platform/types.js';
 import { programs as programsTable } from '../store/repo.js';
 import type { Program } from '../store/types.js';
@@ -201,6 +201,18 @@ export async function pageRoutes(app: FastifyInstance): Promise<void> {
       const d = deployments.find((x) => x.env === e);
       if (d) latestByEnv[e] = d.id;
     }
+    // For the firmware-kit channel rail, each tile must link to the latest
+    // deployment of THAT channel+env — not just the env's latest (which would send
+    // every channel to the same record). Key by channelLabel(pipeline) so it lines
+    // up with project.channels. deployments are newest-first → first match wins.
+    const latestByChannelEnv: Record<string, Partial<Record<Env, string>>> = {};
+    if (project.type === 'firmware-kit') {
+      for (const d of deployments) {
+        const ch = channelLabel(d.pipeline);
+        const m = (latestByChannelEnv[ch] ??= {});
+        if (!m[d.env]) m[d.env] = d.id;
+      }
+    }
     // Artifacts (BUILDS tab) and deploy-config (CONFIG tab) are fetched lazily.
     const allArtifacts = tab === 'builds' ? await platform.listArtifacts(project) : [];
     // Deploy-config versioning is retained in the backend but no longer surfaced
@@ -215,6 +227,7 @@ export async function pageRoutes(app: FastifyInstance): Promise<void> {
       projectsById: byId(projects),
       deployments,
       latestByEnv,
+      latestByChannelEnv,
       artifacts: allArtifacts.slice(0, ARTIFACT_PAGE),
       artifactTotal: allArtifacts.length,
       artifactNextOffset: allArtifacts.length > ARTIFACT_PAGE ? ARTIFACT_PAGE : null,
