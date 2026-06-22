@@ -678,7 +678,7 @@ function normalizeDeployment(raw: unknown): Deployment {
     projectId: String(r.project_id ?? r.projectId ?? ''),
     version: String(r.version ?? ''),
     env: (r.environment ?? r.env) as Env,
-    pipeline: String(r.pipeline ?? r.pipeline_type ?? 'platform'),
+    pipeline: String(r.pipeline ?? r.deploy_pipeline ?? r.pipeline_type ?? 'platform'),
     executor: String(r.executor ?? 'platform'),
     status: (r.status as Deployment['status']) ?? 'pending',
     progress: r.progress as number | undefined,
