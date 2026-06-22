@@ -82,8 +82,10 @@ export interface Deployment {
   note?: string;
   workflowUrl?: string;
   externalUrl?: string;
-  /** Bounded event timeline (platform Deployment.events[]); full logs live in S3. */
+  /** Bounded event timeline (platform Deployment.events[]). */
   log?: DeploymentLogLine[];
+  /** Manifests this deployment published (firmware-kit): each key → its S3 destination. */
+  manifests?: { key: string; uri: string }[];
 }
 
 /** A single project's version in one environment (Environments lens row). */

@@ -410,6 +410,26 @@ export async function pageRoutes(app: FastifyInstance): Promise<void> {
     });
   });
 
+  // Fetch a published manifest's body for view (inline) or download. Proxies the
+  // platform (which reads it from S3) so the browser never touches S3 directly.
+  app.get<{ Params: { id: string }; Querystring: { key?: string; download?: string } }>(
+    '/cicd/deployments/:id/manifest',
+    { preHandler: requireAuth },
+    async (request, reply) => {
+      const key = request.query.key;
+      if (!key) return reply.code(400).send({ error: 'key is required' });
+      try {
+        const body = await platform.getDeploymentManifest(request.params.id, key);
+        const filename = key.split('/').pop() || 'manifest.json';
+        reply.header('content-type', 'application/json; charset=utf-8');
+        if (request.query.download) reply.header('content-disposition', `attachment; filename="${filename}"`);
+        return reply.send(body);
+      } catch (err) {
+        return reply.code(502).send({ error: err instanceof Error ? err.message : 'Failed to fetch manifest' });
+      }
+    },
+  );
+
   app.get('/cicd/access-groups', { preHandler: requireAuth }, async (request, reply) => {
     return reply.view('access-groups.eta', {
       ...(await chrome(request, 'cicd', 'access-groups')),
