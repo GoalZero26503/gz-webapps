@@ -161,7 +161,23 @@ export interface KitRelease {
 export interface KitConfigComponent {
   name: string;
   project: string;
+  set?: 'iNode' | 'xNode';
+  slots?: string[];
   version?: string;
+}
+
+/** One host's expanded manifest (preview of what a release would write). */
+export interface HostManifest {
+  hostId: string;
+  iNodes: Record<string, string>;
+  xNodes?: Record<string, string>;
+}
+
+/** Kit-release preview response: per-host manifests + components missing a version. */
+export interface KitPreview {
+  manifests: HostManifest[];
+  missing: string[];
+  host_count: number;
 }
 
 /** Firmware-kit deploy data (host topology + composable releases). */
