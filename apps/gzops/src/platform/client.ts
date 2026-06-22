@@ -168,6 +168,12 @@ class PlatformClient {
     return raw ? normalizeDeployment(raw) : null;
   }
 
+  /** Fetch the raw body of a manifest this deployment published (deployment-detail view). */
+  async getDeploymentManifest(id: string, key: string): Promise<string> {
+    if (this.isFake) return JSON.stringify({ iNodes: {}, note: 'fake manifest' }, null, 2);
+    return this.fetchSignedText('GET', `/deployments/${encodeURIComponent(id)}/manifest?key=${encodeURIComponent(key)}`);
+  }
+
   async createDeployment(input: CreateDeploymentInput): Promise<Deployment> {
     if (this.isFake) return this.createFakeDeployment(input);
     const raw = await this.postJson<unknown>('/deployments', {
@@ -461,6 +467,16 @@ class PlatformClient {
     return out;
   }
 
+  /** Signed request that returns the raw response text (endpoints that aren't {success,data}-wrapped). */
+  private async fetchSignedText(method: string, path: string): Promise<string> {
+    const { platformBaseUrl } = getConfig();
+    const region = process.env.AWS_REGION || 'us-east-1';
+    const signed = signRequest(method, `${platformBaseUrl}${path}`, region, '');
+    const res = await fetch(signed.url, { method: signed.method, headers: signed.headers });
+    if (!res.ok) throw new Error(`Platform API ${method} ${path} → ${res.status}`);
+    return res.text();
+  }
+
   private async fetchSigned<T>(method: string, path: string, body = ''): Promise<T> {
     const { platformBaseUrl } = getConfig();
     const region = process.env.AWS_REGION || 'us-east-1';
@@ -672,5 +688,14 @@ function normalizeDeployment(raw: unknown): Deployment {
     workflowUrl: r.workflow_url as string | undefined,
     externalUrl: r.external_url as string | undefined,
     log: (r.events as DeploymentLogLine[] | undefined) ?? undefined,
+    manifests: manifestsFromResult(r.result),
   };
+}
+
+/** Pull the published manifests (key → s3 destination) out of a deployment result. */
+function manifestsFromResult(result: unknown): { key: string; uri: string }[] | undefined {
+  const urls = (result as { urls?: Record<string, string> } | undefined)?.urls;
+  if (!urls || typeof urls !== 'object') return undefined;
+  const list = Object.entries(urls).map(([key, uri]) => ({ key, uri: String(uri) }));
+  return list.length ? list : undefined;
 }
