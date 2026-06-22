@@ -12,18 +12,21 @@
     </div>
   </div>
   <span class="grow"></span>
-  <% if (it.project) { %><a class="btn sm" href="/cicd/projects/<%= it.project.id %>?tab=builds">View artifact</a><% } %>
+  <%# Kit releases publish manifests, not a downloadable artifact — no "View artifact". %>
+  <% if (it.project && it.deployment.executor !== 'kit-release') { %><a class="btn sm" href="/cicd/projects/<%= it.project.id %>?tab=builds">View artifact</a><% } %>
   <% if (it.deployment.workflowUrl) { %><a class="btn sm" href="<%= it.deployment.workflowUrl %>" target="_blank" rel="noopener">Workflow run ↗</a><% } %>
   <% if (it.deployment.externalUrl) { %><a class="btn sm" href="<%= it.deployment.externalUrl %>" target="_blank" rel="noopener">Open in store ↗</a><% } %>
 </div>
 
-<% if (it.deployment.note) { %>
+<%# Only a FAILED deployment shows the message as an error. For succeeded/in-progress
+    the status_message is informational and lives in the deploy log below. %>
+<% if (it.deployment.status === 'failed' && it.deployment.note) { %>
   <div class="alert err" style="margin-bottom:16px;"><span class="dot err" style="margin-top:5px;"></span><div><div class="t"><%= it.deployment.note %></div></div></div>
 <% } %>
 
 <div class="card">
   <div class="card-head"><span class="accent-bar" <% if (it.deployment.status === 'failed') { %>style="background:var(--red);"<% } %>></span><h2>Deploy log</h2>
-    <span class="grow"></span><span class="small faint">bounded event timeline · full logs in S3</span></div>
+    <span class="grow"></span><span class="small faint">bounded event timeline</span></div>
   <div class="card-body flush"><div class="log-view">
     <% if (it.deployment.log && it.deployment.log.length) { %>
       <% it.deployment.log.forEach(function (line) { %>
