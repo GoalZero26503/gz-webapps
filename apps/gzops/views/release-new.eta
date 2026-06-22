@@ -1,0 +1,17 @@
+<% layout('layout') %>
+<div class="page-head" style="margin-bottom:14px;">
+  <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+    <a class="btn btn-ghost sm" href="/cicd/projects/<%= it.project.id %>"><i class="icon-arrow-left"></i></a>
+    <h1 style="font-size:19px;margin:0;">New release</h1>
+    <span class="badge"><%= it.project.name %></span>
+    <span class="badge info">firmware-kit</span>
+  </div>
+</div>
+<gz-kit-release
+  project-id="<%= it.project.id %>"
+  envs="<%= it.ENVS.join(',') %>"
+  suggested-version="<%= it.suggested %>"
+  host-ids="<%= it.hostIdsJson %>"
+  components="<%= it.componentsJson %>"
+  preview-url="/cicd/projects/<%= it.project.id %>/release/preview"
+  cancel-url="/cicd/projects/<%= it.project.id %>"></gz-kit-release>

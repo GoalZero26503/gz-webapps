@@ -11,6 +11,18 @@ const PAGE_SIZE = 6;
 /** BUILDS-tab artifact rows per page (HTMX load-more appends the next batch). */
 const ARTIFACT_PAGE = 20;
 
+/** Suggest the next kit version: patch-bump the highest existing release version. */
+function nextKitVersion(versions: string[]): string {
+  const parse = (v: string): number[] => v.replace(/^v/i, '').split('.').map((n) => parseInt(n, 10) || 0);
+  const cmp = (a: number[], b: number[]): number => (a[0] - b[0]) || (a[1] - b[1]) || (a[2] - b[2]);
+  let best: number[] | null = null;
+  for (const v of versions) {
+    const p = [...parse(v), 0, 0, 0].slice(0, 3);
+    if (!best || cmp(p, best) > 0) best = p;
+  }
+  return best ? `${best[0]}.${best[1]}.${best[2] + 1}` : '1.0.0';
+}
+
 const byId = (projects: Project[]): Record<string, Project> =>
   Object.fromEntries(projects.map((p) => [p.id, p]));
 
@@ -252,6 +264,51 @@ export async function pageRoutes(app: FastifyInstance): Promise<void> {
         source: 'webapp',
       });
       return reply.send({ ok: true, version: saved.version });
+    },
+  );
+
+  // ── Create Release (firmware-kit) — preview-only for now (phase 3b) ──
+  app.get<{ Params: { id: string } }>(
+    '/cicd/projects/:id/release/new',
+    { preHandler: requirePermission('deploys:create') },
+    async (request, reply) => {
+      const project = await platform.getProject(request.params.id);
+      if (!project) return reply.code(404).view('not-found.eta', { ...(await chrome(request, 'cicd', 'projects')), title: 'Not found', what: 'Project' });
+      if (project.type !== 'firmware-kit') return reply.redirect(`/cicd/projects/${project.id}`);
+      const dc = await platform.getDeployConfig(project.id);
+      const kit = dc.kit ?? { host_ids: [], components: [], releases: [] };
+      // Available built versions per component, fetched in parallel.
+      const components = await Promise.all(
+        (kit.components ?? []).map(async (c) => ({
+          name: c.name,
+          set: c.set ?? 'iNode',
+          slots: c.slots ?? [],
+          project: c.project,
+          versions: c.project ? await platform.availableVersions(c.project) : [],
+        })),
+      );
+      const suggested = nextKitVersion((kit.releases ?? []).map((r) => r.version ?? '').filter(Boolean));
+      return reply.view('release-new.eta', {
+        ...(await chrome(request, 'cicd', 'projects')),
+        title: `New release — ${project.name}`,
+        project,
+        hostIdsJson: JSON.stringify(kit.host_ids ?? []),
+        componentsJson: JSON.stringify(components),
+        suggested,
+      });
+    },
+  );
+
+  // BFF proxy for the live preview (read-only — expands a selection to manifests).
+  app.post<{ Params: { id: string }; Body: { versions?: Record<string, string>; hostIds?: string[] } }>(
+    '/cicd/projects/:id/release/preview',
+    { preHandler: requirePermission('deploys:create') },
+    async (request, reply) => {
+      const preview = await platform.previewKitRelease(request.params.id, {
+        versions: request.body?.versions ?? {},
+        hostIds: request.body?.hostIds,
+      });
+      return reply.send(preview);
     },
   );
 

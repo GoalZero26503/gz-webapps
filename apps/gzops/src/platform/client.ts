@@ -38,6 +38,7 @@ import {
   type EnvProjectState,
   type HealthCheckConfig,
   type KitDeployConfig,
+  type KitPreview,
   type Project,
   type Rail,
   type RailCell,
@@ -277,6 +278,26 @@ class PlatformClient {
   async getDeployConfig(projectId: string): Promise<DeployConfig> {
     if (this.isFake) return this.fakeConfigs.get(projectId) ?? this.fakeDeployConfig(projectId);
     return this.getJson<DeployConfig>(`/projects/${encodeURIComponent(projectId)}/deploy-config`);
+  }
+
+  /** Distinct built artifact versions for a node project, newest-first (release dropdown). */
+  async availableVersions(projectId: string): Promise<string[]> {
+    if (this.isFake) return ['2.6.0', '2.5.9', '2.5.8'];
+    const res = await this.getJson<{ artifacts?: { version?: string }[] }>(
+      `/projects/${encodeURIComponent(projectId)}/artifacts?limit=200`,
+    ).catch(() => ({ artifacts: [] as { version?: string }[] }));
+    const set = new Set<string>();
+    for (const a of res.artifacts ?? []) if (a.version) set.add(a.version);
+    return [...set].sort((a, b) => b.localeCompare(a, undefined, { numeric: true }));
+  }
+
+  /** Read-only: expand a kit-release selection into per-host manifests (no writes). */
+  async previewKitRelease(
+    projectId: string,
+    selection: { versions: Record<string, string>; hostIds?: string[] },
+  ): Promise<KitPreview> {
+    if (this.isFake) return { manifests: [], missing: [], host_count: 0 };
+    return this.postJson<KitPreview>(`/projects/${encodeURIComponent(projectId)}/kit-release/preview`, selection);
   }
 
   /** Saved versions, newest first (the active one is [0]). */
