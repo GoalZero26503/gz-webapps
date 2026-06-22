@@ -321,6 +321,10 @@ select:focus {
 /* Chip used as a toggle button in the deploy-config editor */
 button.chip { cursor: pointer; }
 button.chip.chip-on { background: var(--gz-green-dim); border-color: var(--gz-green); color: var(--text-primary); }
+/* Static (read-only) chips for view mode: selected reads as "on but locked"
+   (dulled green + ✓), unselected as a faint grey placeholder. */
+.chip.chip-sel { background: var(--gz-green-dim); border-color: var(--gz-green); color: var(--text-primary); opacity: 0.55; }
+.chip.chip-off { opacity: 0.4; }
 
 /* Deploy-config editor (Lit, light DOM) */
 .dc-in { background: var(--bg-primary); border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--text-primary); padding: 6px 9px; font-size: 13px; min-width: 0; }

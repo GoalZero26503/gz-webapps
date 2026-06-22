@@ -81,16 +81,13 @@
   <% var dc = it.deployConfig; %>
   <% if (it.editing) { %>
   <div class="page-head" style="margin-bottom:14px;">
-    <div style="display:flex;align-items:center;gap:8px;"><h1 style="font-size:19px;margin:0;">Edit deploy config</h1>
-      <span class="badge info"><%= dc.version ? ('from v' + dc.version) : 'new' %></span></div>
+    <div style="display:flex;align-items:center;gap:8px;"><h1 style="font-size:19px;margin:0;">Edit deploy config</h1></div>
   </div>
   <gz-deploy-config-editor config="<%= it.deployConfigJson %>" project-id="<%= it.project.id %>" project-type="<%= it.project.type %>" save-url="/cicd/projects/<%= it.project.id %>/config" cancel-url="/cicd/projects/<%= it.project.id %>?tab=config" envs="<%= it.ENVS.join(',') %>" node-projects="<%= it.nodeProjectsJson %>"></gz-deploy-config-editor>
   <% } else { %>
   <div class="page-head" style="margin-bottom:14px;">
     <div style="display:flex;align-items:center;gap:8px;">
       <span class="label-caps">Deploy domain</span>
-      <span class="badge <%= dc.version ? 'info' : '' %>"><%= dc.version ? ('v' + dc.version) : 'unsaved (v0)' %></span>
-      <span class="small faint"><%= dc.source %><% if (dc.author) { %> · <%= dc.author %><% } %></span>
     </div>
     <span class="grow"></span>
     <% if (it.canEditConfig) { %><a class="btn btn-primary" href="/cicd/projects/<%= it.project.id %>?tab=config&edit=1"><i class="icon-pencil"></i> Edit deploy config</a><% } %>
@@ -98,8 +95,7 @@
 
   <div class="card"><div class="card-head"><span class="accent-bar"></span><h2>Environments</h2></div>
     <div class="card-body"><div class="chips">
-      <% ;(dc.environments || []).forEach(function (e) { %><span class="chip"><%= e %></span><% }) %>
-      <% if (!(dc.environments || []).length) { %><span class="small faint">none</span><% } %>
+      <% it.ENVS.forEach(function (e) { var on = (dc.environments || []).indexOf(e) !== -1; %><span class="chip <%= on ? 'chip-sel' : 'chip-off' %>"><% if (on) { %>✓ <% } %><%= e %></span><% }) %>
     </div></div></div>
 
   <div class="card"><div class="card-head"><h2>Deploy pipelines</h2><span class="grow"></span><span class="small faint"><%= (dc.deploy_pipelines||[]).length %></span></div>
@@ -166,17 +162,9 @@
   <% if (dc.health_check) { %>
     <div class="card"><div class="card-head"><h2>Health check</h2></div><div class="card-body">
       <div class="kv"><span class="k">URL</span><span class="v mono"><%= dc.health_check.url %></span></div>
-      <div class="kv"><span class="k">Environments</span><span class="v"><% ;(dc.health_check.environments||it.ENVS).forEach(function(e){ %><span class="chip"><%= e %></span><% }) %></span></div>
+      <div class="kv"><span class="k">Environments</span><span class="v"><% var hcEnvs = dc.health_check.environments || it.ENVS; it.ENVS.forEach(function(e){ var on = hcEnvs.indexOf(e) !== -1; %><span class="chip <%= on ? 'chip-sel' : 'chip-off' %>"><% if (on) { %>✓ <% } %><%= e %></span><% }) %></span></div>
     </div></div>
   <% } %>
 
-  <% if ((it.deployVersions||[]).length) { %>
-    <div class="card"><div class="card-head"><h2>Version history</h2></div><div class="card-body flush"><table class="tbl">
-      <thead><tr><th>Version</th><th>Source</th><th>Author</th><th>When</th><th>Note</th></tr></thead><tbody>
-        <% it.deployVersions.forEach(function(v){ %>
-          <tr><td class="mono">v<%= v.version %></td><td><%= v.source %></td><td><%= v.author %></td><td class="small muted"><%~ it.timeAgo(v.created_at) %></td><td class="small faint"><%= v.note || '' %></td></tr>
-        <% }) %>
-      </tbody></table></div></div>
-  <% } %>
   <% } %>
 <% } %>

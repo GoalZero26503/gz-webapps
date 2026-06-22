@@ -93,20 +93,21 @@ export class GzDeployConfigEditor extends LitElement {
   }
 
   // ── Section renderers ─────────────────────────────────────
-  private section(title: string, body: TemplateResult, accent = false): TemplateResult {
-    return html`<div class="card"><div class="card-head">${accent ? html`<span class="accent-bar"></span>` : nothing}<h2>${title}</h2></div><div class="card-body">${body}</div></div>`;
+  private section(title: string, body: TemplateResult, accent = false, desc?: string): TemplateResult {
+    return html`<div class="card"><div class="card-head">${accent ? html`<span class="accent-bar"></span>` : nothing}<h2>${title}</h2></div><div class="card-body">${desc ? html`<div class="small faint" style="margin:-2px 0 12px;max-width:64ch;">${desc}</div>` : nothing}${body}</div></div>`;
   }
 
+  /** Env toggle chips — selected show a ✓ and turn green (matches the Create Release UI). */
   private envToggles(selected: string[], onToggle: (e: string) => void): TemplateResult {
     return html`<div class="chips">${this.allEnvs.map((e) => html`
-      <button type="button" class="chip ${selected.includes(e) ? 'chip-on' : ''}" @click=${() => onToggle(e)}>${e}</button>`)}</div>`;
+      <button type="button" class="chip ${selected.includes(e) ? 'chip-on' : ''}" @click=${() => onToggle(e)}>${selected.includes(e) ? '✓ ' : ''}${e}</button>`)}</div>`;
   }
 
   private renderEnvironments(): TemplateResult {
     return this.section('Environments', this.envToggles(this.m.environments, (e) => {
       this.m.environments = this.m.environments.includes(e) ? this.m.environments.filter((x) => x !== e) : [...this.m.environments, e];
       this.bump();
-    }), true);
+    }), true, 'Which deployment environments this project targets, in promotion order (dev → test → alpha → beta → stage → prod). A release can only be sent to an environment that is enabled here.');
   }
 
   private renderPipelines(): TemplateResult {
@@ -122,7 +123,8 @@ export class GzDeployConfigEditor extends LitElement {
           <button type="button" class="btn sm ghost" @click=${() => { this.m.deploy_pipelines.splice(i, 1); this.bump(); }}>✕</button>
         </div>`)}
       <button type="button" class="btn sm" @click=${() => { this.m.deploy_pipelines = [...this.m.deploy_pipelines, { name: '', plugin: 's3', config: {} }]; this.bump(); }}>+ Add pipeline</button>
-    `);
+    `, false,
+      'A named delivery method = a plugin plus its config. It defines HOW a built artifact (or kit manifest) reaches an environment — e.g. firmware-kit-deploy publishes per-host manifests to an S3 channel, testflight/playstore push a mobile build, github-action dispatches a workflow. Artifact routing and kit channels reference these pipelines by name. Each row: a name, the plugin, and a JSON config blob (bucket, channel, role_arn, …).');
   }
 
   private renderArtifacts(): TemplateResult {
@@ -145,7 +147,8 @@ export class GzDeployConfigEditor extends LitElement {
             ${this.envToggles(a.envs ?? [], (e) => { a.envs = (a.envs ?? []).includes(e) ? (a.envs ?? []).filter((x) => x !== e) : [...(a.envs ?? []), e]; this.bump(); })}</div>
         </div>`)}
       <button type="button" class="btn sm" @click=${() => { this.m.artifacts = [...this.m.artifacts, { id: '', name_pattern: '', build_pipeline: '', deploy_pipelines: [], envs: ['*'] }]; this.bump(); }}>+ Add artifact</button>
-    `);
+    `, false,
+      'Routes build outputs to deploy pipelines. Each rule matches the files a build produces by filename glob (name_pattern, e.g. *.zip or pcu-*.bin), names the build pipeline that produced them, and sends matches through the chosen deploy pipeline(s) — limited to the selected environments (* = all). This is what connects "a build finished" to "deploy it here, this way". Firmware-kit projects publish manifests per channel and usually need no artifact rules.');
   }
 
   // ── Kit configuration (topology + component schema) ───────
@@ -168,7 +171,11 @@ export class GzDeployConfigEditor extends LitElement {
       <button type="button" class="btn sm" @click=${() => { kit.host_ids = [...kit.host_ids, '']; this.bump(); }}>+ Add Host ID</button>
 
       <div class="label-caps" style="margin-top:16px;">Components</div>
-      <div class="small faint" style="margin-bottom:6px;">Each node-firmware slot and the project that supplies it. Versions are chosen per release, not here.</div>
+      <div class="small faint" style="margin-bottom:6px;max-width:72ch;">Each node-firmware slot in the kit and the project that supplies its binary. Versions are chosen per release, not here.</div>
+      <div class="small faint" style="margin-bottom:10px;max-width:72ch;border-left:2px solid var(--border);padding-left:10px;">
+        <b>Set</b> — <b>iNode</b>: a board inside the host that derives its node ID from the host (use a glob slot). <b>xNode</b>: a self-contained accessory with its own SKU (use explicit node IDs).<br/>
+        <b>Slots</b> — comma-separated. For iNodes use a glob like <span class="mono">A*-1</span>: the <span class="mono">*</span> fills in the host's own board variant, so on host <span class="mono">H-37500-<b>A20</b>-…</span> the slot <span class="mono">A*-1</span> resolves to node <span class="mono">N-37500-A20-1</span> (a host without that board just skips it). For xNodes list the full node ID(s) verbatim — e.g. <span class="mono">N-23110-A2-1</span> — no wildcards; add one entry per hardware rev you want to advertise.
+      </div>
       ${(kit.components ?? []).map((c, i) => html`
         <div class="dc-row">
           <input class="dc-in" placeholder="label (PCU)" .value=${c.name} @input=${(ev: Event) => { c.name = (ev.target as HTMLInputElement).value; }} />
@@ -177,11 +184,12 @@ export class GzDeployConfigEditor extends LitElement {
             ${nodes.map((n) => html`<option value=${n.id} ?selected=${c.project === n.id}>${n.name}</option>`)}
             ${c.project && !nodes.some((n) => n.id === c.project) ? html`<option value=${c.project} selected>${c.project}</option>` : ''}
           </select>
-          <select class="dc-in" @change=${(ev: Event) => { c.set = (ev.target as HTMLSelectElement).value as 'iNode' | 'xNode'; this.bump(); }}>
-            <option value="iNode" ?selected=${c.set !== 'xNode'}>iNode</option>
-            <option value="xNode" ?selected=${c.set === 'xNode'}>xNode</option>
-          </select>
-          <input class="dc-in mono" placeholder="slots (A*-1)" .value=${(c.slots ?? []).join(', ')}
+          <div class="chips" style="flex-wrap:nowrap;">
+            ${(['iNode', 'xNode'] as const).map((opt) => html`
+              <button type="button" class="chip ${(c.set ?? 'iNode') === opt ? 'chip-on' : ''}" title=${opt === 'iNode' ? 'Board inside the host (glob slot)' : 'Accessory with its own SKU (explicit node IDs)'}
+                @click=${() => { c.set = opt; this.bump(); }}>${(c.set ?? 'iNode') === opt ? '✓ ' : ''}${opt}</button>`)}
+          </div>
+          <input class="dc-in mono" placeholder=${(c.set ?? 'iNode') === 'xNode' ? 'N-23110-A2-1' : 'A*-1'} .value=${(c.slots ?? []).join(', ')}
             @input=${(ev: Event) => { c.slots = (ev.target as HTMLInputElement).value.split(',').map((s) => s.trim()).filter(Boolean); }} />
           <button type="button" class="btn sm ghost" @click=${() => { kit.components!.splice(i, 1); this.bump(); }}>✕</button>
         </div>`)}
@@ -257,10 +265,9 @@ export class GzDeployConfigEditor extends LitElement {
       ${isKit ? html`${this.m.kit ? this.renderKit() : html`<div class="card"><div class="card-body"><button type="button" class="btn sm" @click=${() => { this.m.kit = { host_ids: [], components: [], releases: [] }; this.bump(); }}>+ Add kit config</button></div></div>`}` : nothing}
       ${this.renderHealth()}
       <div class="dc-savebar">
-        <input class="dc-in wide" placeholder="change note (optional)" .value=${this.m.note ?? ''} @input=${(ev: Event) => { this.m.note = (ev.target as HTMLInputElement).value; }} />
         <span class="grow"></span>
         <a class="btn btn-ghost" href=${this.cancelUrl}>Cancel</a>
-        <button type="button" class="btn btn-primary" ?disabled=${this.saving} @click=${() => this.save()}>${this.saving ? 'Saving…' : 'Save new version'}</button>
+        <button type="button" class="btn btn-primary" ?disabled=${this.saving} @click=${() => this.save()}>${this.saving ? 'Saving…' : 'Save'}</button>
       </div>`;
   }
 }
