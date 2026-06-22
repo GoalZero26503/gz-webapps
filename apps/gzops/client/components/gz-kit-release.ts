@@ -36,6 +36,7 @@ export class GzKitRelease extends LitElement {
   @state() private preview: Preview | null = null;
   @state() private loading = false;
   @state() private error = '';
+  @state() private previewOpen = false;
 
   protected createRenderRoot(): HTMLElement { return this; }
 
@@ -168,8 +169,8 @@ export class GzKitRelease extends LitElement {
       </div>
       ${this.error ? html`<div class="callout callout-error">${this.error}</div>` : nothing}
       ${p && p.manifests.length ? html`
-        <details>
-          <summary class="btn sm" style="display:inline-block;cursor:pointer;">View preview (${p.host_count} hosts)</summary>
+        <details @toggle=${(e: Event) => { this.previewOpen = (e.target as HTMLDetailsElement).open; }}>
+          <summary class="btn sm" style="display:inline-block;cursor:pointer;">${this.previewOpen ? 'Hide' : 'View'} preview (${p.host_count} hosts)</summary>
           <div style="margin-top:8px;">
             ${p.manifests.map((m) => html`
               <details class="dc-card" style="margin-bottom:6px;padding:8px 12px;">
