@@ -188,9 +188,9 @@ export async function pageRoutes(app: FastifyInstance): Promise<void> {
     }
     // Artifacts (BUILDS tab) and deploy-config (CONFIG tab) are fetched lazily.
     const allArtifacts = tab === 'builds' ? await platform.listArtifacts(project) : [];
-    const [deployConfig, deployVersions] = tab === 'config'
-      ? await Promise.all([platform.getDeployConfig(project.id), platform.getDeployConfigVersions(project.id)])
-      : [null, []];
+    // Deploy-config versioning is retained in the backend but no longer surfaced
+    // in the UI — load only the active config for the CONFIG tab.
+    const deployConfig = tab === 'config' ? await platform.getDeployConfig(project.id) : null;
     const canEditConfig = request.user!.permissions.includes('deploy-config:write');
     const editing = tab === 'config' && request.query.edit === '1' && canEditConfig;
     return reply.view('project-detail.eta', {
@@ -205,7 +205,6 @@ export async function pageRoutes(app: FastifyInstance): Promise<void> {
       artifactNextOffset: allArtifacts.length > ARTIFACT_PAGE ? ARTIFACT_PAGE : null,
       tab,
       deployConfig,
-      deployVersions,
       editing,
       deployConfigJson: deployConfig ? JSON.stringify(deployConfig) : '{}',
       // Every firmware-node project is selectable as a kit component source. Sourced
