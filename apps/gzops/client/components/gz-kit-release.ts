@@ -75,40 +75,76 @@ export class GzKitRelease extends LitElement {
     return html`<div class="card"><div class="card-head">${accent ? html`<span class="accent-bar"></span>` : nothing}<h2>${title}</h2></div><div class="card-body">${body}</div></div>`;
   }
 
+  private sub(text: string): TemplateResult {
+    return html`<div class="small faint" style="margin:-2px 0 10px;">${text}</div>`;
+  }
+
+  /** What each channel does, with the selected env substituted; warehouse warns. */
+  private channelDesc(ch: 'app' | 'warehouse' | 'manual'): { text: string; warn: boolean } {
+    const env = this.env;
+    if (ch === 'app') return { text: `Releasing to ‘app’ publishes the release to users of the ‘${env}’ mobile app.`, warn: false };
+    if (ch === 'manual') return { text: `Releasing to ‘manual’ publishes the release to be installed when a user holds the PAIR button for 10s.`, warn: false };
+    return { text: `Releasing to ‘warehouse’ will lead to automatic updates being installed to devices in ‘factory mode’ in the ‘${env}’ environment.`, warn: true };
+  }
+
+  private toggleChip(on: boolean, label: string, onClick: () => void): TemplateResult {
+    return html`<button type="button" class="chip ${on ? 'chip-on' : ''}" @click=${onClick}>${on ? '✓ ' : ''}${label}</button>`;
+  }
+
   private renderSetup(): TemplateResult {
+    const chans: ('app' | 'warehouse' | 'manual')[] = ['app', 'warehouse', 'manual'];
     return this.card('Release', html`
-      <div class="dc-row">
-        <label class="label-caps" style="min-width:90px;">Environment</label>
-        <select class="dc-in" @change=${(e: Event) => { this.env = (e.target as HTMLSelectElement).value; }}>
-          ${this.allEnvs.map((x) => html`<option value=${x} ?selected=${x === this.env}>${x}</option>`)}
-        </select>
-        <label class="label-caps" style="min-width:80px;">Kit version</label>
-        <input class="dc-in mono" .value=${this.kitVersion} @input=${(e: Event) => { this.kitVersion = (e.target as HTMLInputElement).value; }} />
-        ${this.suggested ? html`<span class="small faint">suggested ${this.suggested}</span>` : nothing}
+      <div class="dc-row" style="align-items:flex-start;">
+        <div style="flex:1;">
+          <label class="label-caps">Environment</label>
+          ${this.sub('The environment to release to.')}
+          <select class="dc-in" @change=${(e: Event) => { this.env = (e.target as HTMLSelectElement).value; }}>
+            ${this.allEnvs.map((x) => html`<option value=${x} ?selected=${x === this.env}>${x}</option>`)}
+          </select>
+        </div>
+        <div style="flex:1;">
+          <label class="label-caps">Kit version</label>
+          ${this.sub('Version of the release.')}
+          <input class="dc-in mono" .value=${this.kitVersion} @input=${(e: Event) => { this.kitVersion = (e.target as HTMLInputElement).value; }} />
+          ${this.suggested ? html`<span class="small faint">suggested ${this.suggested}</span>` : nothing}
+        </div>
       </div>
-      <div class="dc-sub"><span class="label-caps">Channels</span>
-        <label class="chip ${this.channels.app ? 'chip-on' : ''}"><input type="checkbox" .checked=${this.channels.app} @change=${(e: Event) => { this.channels = { ...this.channels, app: (e.target as HTMLInputElement).checked }; }} /> app</label>
-        <label class="chip ${this.channels.warehouse ? 'chip-on' : ''}"><input type="checkbox" .checked=${this.channels.warehouse} @change=${(e: Event) => { this.channels = { ...this.channels, warehouse: (e.target as HTMLInputElement).checked }; }} /> warehouse</label>
-        <label class="chip ${this.channels.manual ? 'chip-on' : ''}"><input type="checkbox" .checked=${this.channels.manual} @change=${(e: Event) => { this.channels = { ...this.channels, manual: (e.target as HTMLInputElement).checked }; }} /> manual</label>
-        ${this.channels.warehouse ? html`<span class="small" style="color:var(--orange,#ff9b3d);">⚠ warehouse ships to production-line tooling — use deliberately</span>` : nothing}
+      <div class="dc-sub" style="margin-top:12px;">
+        <label class="label-caps">Channels</label>
+        ${this.sub('Channels to release to.')}
+        <div class="chips">
+          ${this.toggleChip(this.channels.app, 'app', () => { this.channels = { ...this.channels, app: !this.channels.app }; })}
+          ${this.toggleChip(this.channels.warehouse, 'warehouse', () => { this.channels = { ...this.channels, warehouse: !this.channels.warehouse }; })}
+          ${this.toggleChip(this.channels.manual, 'manual', () => { this.channels = { ...this.channels, manual: !this.channels.manual }; })}
+        </div>
+        <div style="margin-top:8px;display:flex;flex-direction:column;gap:4px;">
+          ${chans.filter((c) => this.channels[c]).map((c) => {
+            const d = this.channelDesc(c);
+            return html`<div class="small" style="color:${d.warn ? 'var(--orange,#ff9b3d)' : 'var(--text-secondary,#9aa39a)'};">${d.warn ? '⚠ ' : ''}${d.text}</div>`;
+          })}
+        </div>
       </div>
     `, true);
   }
 
   private renderHosts(): TemplateResult {
     return this.card('Hosts', html`
-      <label class="chip ${this.allHosts ? 'chip-on' : ''}"><input type="checkbox" .checked=${this.allHosts}
-        @change=${(e: Event) => { this.allHosts = (e.target as HTMLInputElement).checked; void this.refresh(); }} /> all hosts (${this.hostIds.length})</label>
+      ${this.sub('Choose which Host IDs (hardware revisions / models) will be able to install this release.')}
+      <div class="chips">
+        ${this.toggleChip(this.allHosts, `all hosts (${this.hostIds.length})`, () => { this.allHosts = !this.allHosts; void this.refresh(); })}
+      </div>
       ${this.allHosts ? nothing : html`<div class="chips" style="margin-top:8px;">
-        ${this.hostIds.map((h) => html`<button type="button" class="chip mono ${this.hosts.includes(h) ? 'chip-on' : ''}"
-          @click=${() => { this.hosts = this.hosts.includes(h) ? this.hosts.filter((x) => x !== h) : [...this.hosts, h]; void this.refresh(); }}>${h}</button>`)}
+        ${this.hostIds.map((h) => this.toggleChip(this.hosts.includes(h), h, () => {
+          this.hosts = this.hosts.includes(h) ? this.hosts.filter((x) => x !== h) : [...this.hosts, h];
+          void this.refresh();
+        }))}
       </div>`}
     `);
   }
 
   private renderComponents(): TemplateResult {
     return this.card('Components', html`
-      <div class="small faint" style="margin-bottom:6px;">Pick a built version per component (newest first). Only versions that exist as artifacts are listed.</div>
+      ${this.sub('Pick a built version per component (newest first). Only versions that exist as artifacts are listed.')}
       ${this.components.map((c) => html`
         <div class="dc-row">
           <span style="min-width:110px;">${c.name} <span class="chip ${c.set === 'xNode' ? '' : 'chip-on'}" style="font-size:10px;">${c.set}</span></span>
@@ -124,20 +160,27 @@ export class GzKitRelease extends LitElement {
   private renderPreview(): TemplateResult {
     const p = this.preview;
     return this.card('Preview', html`
-      <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
-        <button type="button" class="btn sm" @click=${() => void this.refresh()} ?disabled=${this.loading}>${this.loading ? 'Previewing…' : 'Refresh preview'}</button>
-        ${p ? html`<span class="small faint">${p.host_count} host manifest${p.host_count === 1 ? '' : 's'}</span>` : nothing}
+      ${this.sub('The per-host manifests this release would publish. Updates automatically as you change versions or hosts.')}
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px;">
+        ${this.loading ? html`<span class="small faint">updating…</span>` : nothing}
+        ${p && !this.loading ? html`<span class="small faint">${p.host_count} host manifest${p.host_count === 1 ? '' : 's'}</span>` : nothing}
         ${p?.missing?.length ? html`<span class="small" style="color:var(--orange,#ff9b3d);">missing version: ${p.missing.join(', ')}</span>` : nothing}
       </div>
       ${this.error ? html`<div class="callout callout-error">${this.error}</div>` : nothing}
-      ${p ? html`<div class="rail-scroll">${p.manifests.map((m) => html`
-        <div class="dc-card" style="margin-bottom:8px;">
-          <div class="mono" style="font-weight:600;margin-bottom:4px;">${m.hostId}</div>
-          <table class="tbl"><tbody>
-            ${Object.entries(m.iNodes).map(([s, v]) => html`<tr><td class="mono">${s}</td><td class="mono">${v}</td></tr>`)}
-            ${Object.entries(m.xNodes ?? {}).map(([s, v]) => html`<tr><td class="mono">${s} <span class="small faint">(xNode)</span></td><td class="mono">${v}</td></tr>`)}
-          </tbody></table>
-        </div>`)}</div>` : nothing}
+      ${p && p.manifests.length ? html`
+        <details>
+          <summary class="btn sm" style="display:inline-block;cursor:pointer;">View preview (${p.host_count} hosts)</summary>
+          <div style="margin-top:8px;">
+            ${p.manifests.map((m) => html`
+              <details class="dc-card" style="margin-bottom:6px;padding:8px 12px;">
+                <summary class="mono" style="cursor:pointer;font-weight:600;">${m.hostId}</summary>
+                <table class="tbl" style="margin-top:6px;"><tbody>
+                  ${Object.entries(m.iNodes).map(([s, v]) => html`<tr><td class="mono">${s}</td><td class="mono">${v}</td></tr>`)}
+                  ${Object.entries(m.xNodes ?? {}).map(([s, v]) => html`<tr><td class="mono">${s} <span class="small faint">(xNode)</span></td><td class="mono">${v}</td></tr>`)}
+                </tbody></table>
+              </details>`)}
+          </div>
+        </details>` : nothing}
     `, true);
   }
 

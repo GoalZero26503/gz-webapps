@@ -331,7 +331,7 @@ button.chip.chip-on { background: var(--gz-green-dim); border-color: var(--gz-gr
 .dc-card { border: 1px solid var(--border); border-radius: var(--radius-md); padding: 12px; margin-bottom: 12px; background: var(--bg-primary); }
 .dc-sub { margin: 10px 0; }
 .dc-sub .label-caps { display: block; margin-bottom: 6px; }
-.dc-savebar { display: flex; align-items: center; gap: 10px; padding: 14px 0; position: sticky; bottom: 0; background: var(--bg-base); }
+.dc-savebar { display: flex; align-items: center; gap: 10px; padding: 14px 16px; position: sticky; bottom: 0; z-index: 20; background: var(--bg-elevated, var(--bg-base)); border-top: 1px solid var(--border, #2a2e2a); margin: 0 -16px -16px; box-shadow: 0 -8px 24px -8px rgba(0,0,0,0.6); }
 .dc-savebar .dc-in { flex: 1; }
 
 /* ── Top nav: areas ─────────────────────────────────────── */
