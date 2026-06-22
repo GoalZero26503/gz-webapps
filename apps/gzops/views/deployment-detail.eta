@@ -12,14 +12,11 @@
     </div>
   </div>
   <span class="grow"></span>
-  <%# Kit releases publish manifests, not a downloadable artifact — no "View artifact". %>
   <% if (it.project && it.deployment.executor !== 'kit-release') { %><a class="btn sm" href="/cicd/projects/<%= it.project.id %>?tab=builds">View artifact</a><% } %>
   <% if (it.deployment.workflowUrl) { %><a class="btn sm" href="<%= it.deployment.workflowUrl %>" target="_blank" rel="noopener">Workflow run ↗</a><% } %>
   <% if (it.deployment.externalUrl) { %><a class="btn sm" href="<%= it.deployment.externalUrl %>" target="_blank" rel="noopener">Open in store ↗</a><% } %>
 </div>
 
-<%# Only a FAILED deployment shows the message as an error. For succeeded/in-progress
-    the status_message is informational and lives in the deploy log below. %>
 <% if (it.deployment.status === 'failed' && it.deployment.note) { %>
   <div class="alert err" style="margin-bottom:16px;"><span class="dot err" style="margin-top:5px;"></span><div><div class="t"><%= it.deployment.note %></div></div></div>
 <% } %>
