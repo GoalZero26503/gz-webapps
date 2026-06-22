@@ -2,16 +2,18 @@ import { html, LitElement, nothing, type TemplateResult } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 
 /**
- * Create Release composer for a firmware-kit (phase 3b — PREVIEW ONLY).
+ * Create Release composer for a firmware-kit.
  *
  * You pick one built version per component, an environment, channels, and a host
  * scope; the widget calls the read-only preview endpoint and renders the per-host
- * manifests the release WOULD write. No artifacts are copied and no manifests are
- * published — the CD worker (submit) lands in phase 3c.
+ * manifests the release WOULD write. Submitting POSTs to the CD endpoint, which
+ * copies the component binaries, gates readiness, and publishes the manifests
+ * across the chosen channels (one deployment per channel).
  *
  *   <gz-kit-release project-id="…" envs="dev,test,…" suggested-version="1.8.8"
  *      host-ids='[...]' components='[{name,set,slots,project,versions[]}]'
- *      preview-url="/cicd/projects/ID/release/preview" cancel-url="…">
+ *      preview-url="/cicd/projects/ID/release/preview"
+ *      submit-url="/cicd/projects/ID/release/submit" cancel-url="…">
  */
 interface Comp { name: string; set: 'iNode' | 'xNode'; slots: string[]; project: string; versions: string[] }
 interface HostManifest { hostId: string; iNodes: Record<string, string>; xNodes?: Record<string, string> }
@@ -21,6 +23,7 @@ interface Preview { manifests: HostManifest[]; missing: string[]; host_count: nu
 export class GzKitRelease extends LitElement {
   @property({ attribute: 'project-id' }) projectId = '';
   @property({ attribute: 'preview-url' }) previewUrl = '';
+  @property({ attribute: 'submit-url' }) submitUrl = '';
   @property({ attribute: 'cancel-url' }) cancelUrl = '';
   @property({ attribute: 'suggested-version' }) suggested = '';
   @property({ attribute: 'envs' }) envsAttr = 'dev,test,alpha,beta,stage,prod';
@@ -37,6 +40,9 @@ export class GzKitRelease extends LitElement {
   @state() private loading = false;
   @state() private error = '';
   @state() private previewOpen = false;
+  @state() private submitting = false;
+  @state() private result: { environment: string; kit_version: string; host_count: number; copied_binaries: number; deployments: { channel: string; deployment_id: string }[] } | null = null;
+  @state() private submitError = '';
 
   protected createRenderRoot(): HTMLElement { return this; }
 
@@ -69,6 +75,48 @@ export class GzKitRelease extends LitElement {
       this.preview = null;
     } finally {
       this.loading = false;
+    }
+  }
+
+  private get selectedChannels(): ('app' | 'manual' | 'warehouse')[] {
+    return (['app', 'manual', 'warehouse'] as const).filter((c) => this.channels[c]);
+  }
+
+  private get canSubmit(): boolean {
+    return !this.submitting && !this.result
+      && !!this.kitVersion.trim()
+      && this.selectedChannels.length > 0
+      && !(this.preview?.missing?.length)
+      && (this.allHosts || this.hosts.length > 0);
+  }
+
+  private async submit(): Promise<void> {
+    const chans = this.selectedChannels;
+    const warns = chans.includes('warehouse');
+    const msg = `Release ${this.kitVersion} to ${chans.join(', ')} in ‘${this.env}’?`
+      + (warns ? `\n\n⚠ The ‘warehouse’ channel triggers automatic updates to devices in factory mode in ‘${this.env}’.` : '');
+    if (!window.confirm(msg)) return;
+    this.submitting = true;
+    this.submitError = '';
+    try {
+      const res = await fetch(this.submitUrl, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          versions: this.versions,
+          hostIds: this.allHosts ? undefined : this.hosts,
+          channels: chans,
+          environment: this.env,
+          kit_version: this.kitVersion.trim(),
+        }),
+      });
+      const data = (await res.json().catch(() => ({}))) as { error?: string } & NonNullable<typeof this.result>;
+      if (!res.ok) throw new Error(data.error || `Release failed (${res.status})`);
+      this.result = data;
+    } catch (e) {
+      this.submitError = e instanceof Error ? e.message : 'Release failed';
+    } finally {
+      this.submitting = false;
     }
   }
 
@@ -185,17 +233,35 @@ export class GzKitRelease extends LitElement {
     `, true);
   }
 
+  /** Success panel shown in place of the form footer once a release is published. */
+  private renderResult(): TemplateResult {
+    const r = this.result!;
+    return this.card('Release published', html`
+      <div class="small">Published <span class="mono">${r.kit_version}</span> to <span class="mono">${r.environment}</span> across ${r.deployments.length} channel${r.deployments.length === 1 ? '' : 's'} (${r.host_count} host manifest${r.host_count === 1 ? '' : 's'}${r.copied_binaries ? `, ${r.copied_binaries} binaries staged` : ''}).</div>
+      <table class="tbl" style="margin-top:8px;"><tbody>
+        ${r.deployments.map((d) => html`<tr><td class="mono">${d.channel}</td><td class="mono small faint">${d.deployment_id}</td></tr>`)}
+      </tbody></table>
+      <div style="margin-top:12px;"><a class="btn btn-primary" href=${this.cancelUrl}>Back to project</a></div>
+    `, true);
+  }
+
   render(): TemplateResult {
+    if (this.result) {
+      return html`${this.renderSetup()}${this.renderHosts()}${this.renderComponents()}${this.renderResult()}`;
+    }
+    const chans = this.selectedChannels;
     return html`
       ${this.renderSetup()}
       ${this.renderHosts()}
       ${this.renderComponents()}
       ${this.renderPreview()}
       <div class="dc-savebar">
-        <span class="small faint">Preview only — creating the release (artifact copy + manifest publish) lands next.</span>
+        ${this.submitError ? html`<span class="small" style="color:var(--red,#ff6b6b);">${this.submitError}</span>` : html`<span class="small faint">${chans.length ? `Will publish to ${chans.join(', ')} in ‘${this.env}’.` : 'Select at least one channel.'}</span>`}
         <span class="grow"></span>
         <a class="btn btn-ghost" href=${this.cancelUrl}>Back</a>
-        <button type="button" class="btn btn-primary" disabled title="CD worker coming in the next phase">Create release</button>
+        <button type="button" class="btn btn-primary" ?disabled=${!this.canSubmit} @click=${() => void this.submit()}>
+          ${this.submitting ? 'Publishing…' : 'Create release'}
+        </button>
       </div>`;
   }
 }

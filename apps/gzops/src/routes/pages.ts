@@ -312,6 +312,33 @@ export async function pageRoutes(app: FastifyInstance): Promise<void> {
     },
   );
 
+  // BFF proxy for the submit — copies component binaries, gates readiness, and
+  // publishes per-host manifests across the chosen channels (one deployment per
+  // channel). The user is attributed via their authenticated email.
+  app.post<{ Params: { id: string }; Body: { versions?: Record<string, string>; hostIds?: string[]; channels?: string[]; environment?: string; kit_version?: string } }>(
+    '/cicd/projects/:id/release/submit',
+    { preHandler: requirePermission('deploys:create') },
+    async (request, reply) => {
+      const b = request.body ?? {};
+      if (!b.environment) return reply.code(400).send({ error: 'environment is required' });
+      if (!b.kit_version) return reply.code(400).send({ error: 'kit_version is required' });
+      if (!b.channels?.length) return reply.code(400).send({ error: 'at least one channel is required' });
+      try {
+        const result = await platform.createKitRelease(request.params.id, {
+          versions: b.versions ?? {},
+          hostIds: b.hostIds,
+          channels: b.channels,
+          environment: b.environment,
+          kit_version: b.kit_version,
+          by: request.user!.email,
+        });
+        return reply.send(result);
+      } catch (err) {
+        return reply.code(502).send({ error: err instanceof Error ? err.message : 'Release failed' });
+      }
+    },
+  );
+
   app.get<{ Querystring: { env?: string } }>('/cicd/environments', { preHandler: requireAuth }, async (request, reply) => {
     const env = (ENVS as readonly string[]).includes(request.query.env ?? '') ? (request.query.env as Env) : 'beta';
     return reply.view('environments.eta', {
