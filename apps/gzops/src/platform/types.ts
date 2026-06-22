@@ -180,6 +180,15 @@ export interface KitPreview {
   host_count: number;
 }
 
+/** Kit-release publish result: one deployment record per published channel. */
+export interface KitReleaseResult {
+  environment: string;
+  kit_version: string;
+  host_count: number;
+  copied_binaries: number;
+  deployments: { channel: string; deployment_id: string; manifests: number }[];
+}
+
 /** Firmware-kit deploy data (host topology + composable releases). */
 export interface KitDeployConfig {
   host_ids: string[];

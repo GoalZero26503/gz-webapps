@@ -39,6 +39,7 @@ import {
   type HealthCheckConfig,
   type KitDeployConfig,
   type KitPreview,
+  type KitReleaseResult,
   type Project,
   type Rail,
   type RailCell,
@@ -298,6 +299,17 @@ class PlatformClient {
   ): Promise<KitPreview> {
     if (this.isFake) return { manifests: [], missing: [], host_count: 0 };
     return this.postJson<KitPreview>(`/projects/${encodeURIComponent(projectId)}/kit-release/preview`, selection);
+  }
+
+  /** Publish a kit release: copy component binaries, gate readiness, write per-host manifests per channel. */
+  async createKitRelease(
+    projectId: string,
+    input: { versions: Record<string, string>; hostIds?: string[]; channels: string[]; environment: string; kit_version: string; by?: string },
+  ): Promise<KitReleaseResult> {
+    if (this.isFake) {
+      return { environment: input.environment, kit_version: input.kit_version, host_count: 0, copied_binaries: 0, deployments: input.channels.map((channel) => ({ channel, deployment_id: 'fake', manifests: 0 })) };
+    }
+    return this.postJson<KitReleaseResult>(`/projects/${encodeURIComponent(projectId)}/kit-release`, input);
   }
 
   /** Saved versions, newest first (the active one is [0]). */
