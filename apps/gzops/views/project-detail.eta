@@ -15,7 +15,9 @@
 
 <div class="filters">
   <a class="pill <%= it.tab === 'deployment' ? 'active' : '' %>" href="/cicd/projects/<%= it.project.id %>?tab=deployment">DEPLOYMENT</a>
-  <a class="pill <%= it.tab === 'builds' ? 'active' : '' %>" href="/cicd/projects/<%= it.project.id %>?tab=builds">BUILDS</a>
+  <% if (it.project.type !== 'backend' && it.project.type !== 'cloud') { %>
+    <a class="pill <%= it.tab === 'builds' ? 'active' : '' %>" href="/cicd/projects/<%= it.project.id %>?tab=builds"><%= it.project.type === 'firmware-kit' ? 'RELEASES' : 'BUILDS' %></a>
+  <% } %>
   <a class="pill <%= it.tab === 'config' ? 'active' : '' %>" href="/cicd/projects/<%= it.project.id %>?tab=config">DEPLOY CONFIG</a>
 </div>
 
@@ -64,6 +66,39 @@
       <% }) %>
     </tbody></table>
   </div></div>
+<% } else if (it.tab === 'builds' && it.project.type === 'firmware-kit') { %>
+  <div class="card"><div class="card-head"><span class="accent-bar"></span><h2>Releases</h2><span class="grow"></span><span class="small faint"><%= it.kitReleases.length %> release<%= it.kitReleases.length === 1 ? '' : 's' %> · newest first</span></div>
+    <div class="card-body">
+      <% if (!it.kitReleases.length) { %>
+        <div class="small faint">No releases yet — compose one with <span class="mono">Create release</span>.</div>
+      <% } %>
+      <% it.kitReleases.forEach(function (r) { %>
+        <details class="dc-card" style="margin-bottom:10px;">
+          <summary style="cursor:pointer;display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+            <span class="badge info">v<%= r.version %></span>
+            <% r.channels.forEach(function (c) { %><span class="small"><b><%= c.name.replace(/ Release$/i,'') %></b>: <%= it.ENVS.filter(function(e){return c.cells[e];}).join(', ') || '—' %></span><% }) %>
+            <span class="grow"></span><span class="small faint"><%~ it.timeAgo(r.at) %></span>
+          </summary>
+          <div style="margin-top:10px;">
+            <div class="label-caps" style="margin-bottom:6px;">Component versions</div>
+            <% if (r.components.length) { %>
+              <div class="chips" style="margin-bottom:12px;"><% r.components.forEach(function (c) { %><span class="chip mono"><%= c.name %> <%= c.version %></span><% }) %></div>
+            <% } else { %><div class="small faint" style="margin-bottom:12px;">Not recorded (released before component versions were tracked).</div><% } %>
+            <div class="label-caps" style="margin-bottom:6px;">Published to</div>
+            <table class="tbl"><thead><tr><th>Channel</th><% it.ENVS.forEach(function (e) { %><th style="text-align:center;"><%= e %></th><% }) %></tr></thead><tbody>
+              <% r.channels.forEach(function (c) { %>
+                <tr><td><%= c.name %></td>
+                  <% it.ENVS.forEach(function (e) { %>
+                    <td style="text-align:center;"><% if (c.cells[e]) { %><a class="badge ok" href="/cicd/deployments/<%= c.cells[e] %>" title="View deployment">✓</a><% } else { %><span class="faint" style="opacity:.35;">·</span><% } %></td>
+                  <% }) %>
+                </tr>
+              <% }) %>
+            </tbody></table>
+          </div>
+        </details>
+      <% }) %>
+    </div>
+  </div>
 <% } else if (it.tab === 'builds') { %>
   <div id="deploy-tile"></div>
   <div class="card"><div class="card-head"><span class="accent-bar"></span><h2>Artifacts</h2><span class="grow"></span><span class="small faint"><%= it.artifactTotal %> artifact<%= it.artifactTotal === 1 ? '' : 's' %> · newest first</span></div>

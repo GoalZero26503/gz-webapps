@@ -1,7 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import { requireAuth, requirePermission } from '../auth/plugin.js';
 import { platform, channelLabel, type DeployConfigInput } from '../platform/client.js';
-import { ENVS, type Env, type Project } from '../platform/types.js';
+import { ENVS, type Env, type Project, type KitReleaseRow } from '../platform/types.js';
 import { programs as programsTable } from '../store/repo.js';
 import type { Program } from '../store/types.js';
 import { chrome } from '../views/chrome.js';
@@ -213,8 +213,35 @@ export async function pageRoutes(app: FastifyInstance): Promise<void> {
         if (!m[d.env]) m[d.env] = d.id;
       }
     }
-    // Artifacts (BUILDS tab) and deploy-config (CONFIG tab) are fetched lazily.
-    const allArtifacts = tab === 'builds' ? await platform.listArtifacts(project) : [];
+    // Firmware-kit RELEASES tab: a kit version isn't a compiled build — it's a
+    // composed release. Group the kit's deployments by version (newest-first) into
+    // one release per version: the component versions it bundles + which
+    // channels/envs it reached (each cell links to that deployment).
+    const kitReleases: KitReleaseRow[] = [];
+    if (project.type === 'firmware-kit' && tab === 'builds') {
+      const order: string[] = [];
+      const map: Record<string, { version: string; at: string; comps?: Record<string, string>; channels: Record<string, Partial<Record<Env, string>>> }> = {};
+      for (const d of deployments) {
+        if (!map[d.version]) { map[d.version] = { version: d.version, at: d.at, channels: {} }; order.push(d.version); }
+        const r = map[d.version];
+        const ch = channelLabel(d.pipeline);
+        (r.channels[ch] ??= {});
+        if (!r.channels[ch][d.env]) r.channels[ch][d.env] = d.id;
+        if (!r.comps && d.componentVersions) r.comps = d.componentVersions;
+      }
+      for (const v of order) {
+        const r = map[v];
+        kitReleases.push({
+          version: r.version,
+          at: r.at,
+          components: r.comps ? Object.entries(r.comps).map(([name, version]) => ({ name, version })) : [],
+          channels: Object.entries(r.channels).map(([name, cells]) => ({ name, cells })),
+        });
+      }
+    }
+
+    // BUILDS artifacts (non-kit) and deploy-config (CONFIG tab) are fetched lazily.
+    const allArtifacts = tab === 'builds' && project.type !== 'firmware-kit' ? await platform.listArtifacts(project) : [];
     // Deploy-config versioning is retained in the backend but no longer surfaced
     // in the UI — load only the active config for the CONFIG tab.
     const deployConfig = tab === 'config' ? await platform.getDeployConfig(project.id) : null;
@@ -228,6 +255,7 @@ export async function pageRoutes(app: FastifyInstance): Promise<void> {
       deployments,
       latestByEnv,
       latestByChannelEnv,
+      kitReleases,
       artifacts: allArtifacts.slice(0, ARTIFACT_PAGE),
       artifactTotal: allArtifacts.length,
       artifactNextOffset: allArtifacts.length > ARTIFACT_PAGE ? ARTIFACT_PAGE : null,

@@ -86,6 +86,17 @@ export interface Deployment {
   log?: DeploymentLogLine[];
   /** Manifests this deployment published (firmware-kit): each key → its S3 destination. */
   manifests?: { key: string; uri: string }[];
+  /** Component→version selection for a firmware-kit release (kit-release deployments). */
+  componentVersions?: Record<string, string>;
+}
+
+/** A composed firmware-kit release (one kit version) for the RELEASES tab. */
+export interface KitReleaseRow {
+  version: string;
+  at: string;
+  components: { name: string; version: string }[];
+  /** Per channel, which envs this version reached → the deployment id (for linking). */
+  channels: { name: string; cells: Partial<Record<Env, string>> }[];
 }
 
 /** A single project's version in one environment (Environments lens row). */
