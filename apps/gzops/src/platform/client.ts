@@ -689,6 +689,7 @@ function normalizeDeployment(raw: unknown): Deployment {
     externalUrl: r.external_url as string | undefined,
     log: (r.events as DeploymentLogLine[] | undefined) ?? undefined,
     manifests: manifestsFromResult(r.result),
+    componentVersions: (r.result as { metadata?: { component_versions?: Record<string, string> } } | undefined)?.metadata?.component_versions ?? undefined,
   };
 }
 
