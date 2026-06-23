@@ -214,6 +214,15 @@ class PlatformClient {
       .sort((a, b) => (b.uploadedAt ?? '').localeCompare(a.uploadedAt ?? ''));
   }
 
+  /** Presigned S3 URL to download a build artifact's file (BUILDS tab download links). */
+  async artifactDownloadUrl(hashId: string, artifactId: string): Promise<string | null> {
+    if (this.isFake) return null;
+    const res = await this.getJson<{ download_url?: string }>(
+      `/artifacts/${encodeURIComponent(hashId)}/${encodeURIComponent(artifactId)}/download`,
+    ).catch(() => null);
+    return res?.download_url ?? null;
+  }
+
   // ── Platform build identity (GET /health) ─────────────────
   /** The backend's own version + git sha (sidebar footer). Cached via getJson;
    *  null if the platform is unreachable so the footer just omits the line. */
@@ -554,6 +563,7 @@ function normalizeArtifact(raw: Record<string, unknown>, project: Project): Arti
     version: typeof raw.version === 'string' ? raw.version : undefined,
     buildNumber: typeof raw.build_number === 'number' ? raw.build_number : undefined,
     hashId: typeof raw.hash_id === 'string' ? raw.hash_id : undefined,
+    artifactId: typeof raw.artifact_id === 'string' ? raw.artifact_id : undefined,
     envs: artifactEnvStatus(raw, project),
   };
 }

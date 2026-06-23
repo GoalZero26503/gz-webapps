@@ -1,7 +1,10 @@
 <% it.artifacts.forEach(function (a) { %>
   <tr>
     <td>
-      <div class="mono" style="font-size:12px;"><%= a.name %></div>
+      <div class="mono" style="font-size:12px;">
+        <%= a.name %>
+        <% if (a.hashId && a.artifactId) { %><a class="small" style="margin-left:8px;" href="/cicd/artifacts/<%= a.hashId %>/<%= a.artifactId %>/download" title="Download artifact">↓</a><% } %>
+      </div>
       <div class="small faint">
         <%= a.size %> · <%= a.kind %><% if (a.version) { %> · v<%= a.version %><% if (a.buildNumber != null) { %>.<%= a.buildNumber %><% } %><% } %>
         <% if (a.uploadedAt) { %> · <span title="<%= a.uploadedAt %><% if (a.uploadedBy) { %> · <%= a.uploadedBy %><% } %>"><%~ it.timeAgo(a.uploadedAt) %></span><% } %>
@@ -10,8 +13,9 @@
     <% it.ENVS.forEach(function (e) { %>
       <% var st = a.envs[e]; %>
       <td style="text-align:center;">
+        <% /* firmware-node has no standalone deploy — it ships via the kit (Phase 4). */ %>
         <% if (st === 'deployed') { %><span class="badge ok">✓</span>
-        <% } else if (st === 'eligible') { %>
+        <% } else if (st === 'eligible' && it.project.type !== 'firmware-node') { %>
           <% if (it.canDeploy) { %>
             <form hx-post="/cicd/deploy" hx-target="#deploy-tile" hx-swap="innerHTML" style="display:inline;">
               <input type="hidden" name="projectId" value="<%= it.project.id %>" />

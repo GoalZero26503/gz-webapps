@@ -77,7 +77,9 @@
           <summary style="cursor:pointer;display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
             <span class="badge info">v<%= r.version %></span>
             <% r.channels.forEach(function (c) { %><span class="small"><b><%= c.name.replace(/ Release$/i,'') %></b>: <%= it.ENVS.filter(function(e){return c.cells[e];}).join(', ') || '—' %></span><% }) %>
-            <span class="grow"></span><span class="small faint"><%~ it.timeAgo(r.at) %></span>
+            <span class="grow"></span>
+            <% if (r.bundle) { %><a class="small" href="/cicd/artifacts/<%= r.bundle.hashId %>/<%= r.bundle.artifactId %>/download" onclick="event.stopPropagation();" title="Download kit bundle (<%= r.bundle.name %>)">bundle ↓</a><% } %>
+            <span class="small faint"><%~ it.timeAgo(r.at) %></span>
           </summary>
           <div style="margin-top:10px;">
             <div class="label-caps" style="margin-bottom:6px;">Component versions</div>

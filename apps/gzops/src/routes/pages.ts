@@ -219,6 +219,13 @@ export async function pageRoutes(app: FastifyInstance): Promise<void> {
     // channels/envs it reached (each cell links to that deployment).
     const kitReleases: KitReleaseRow[] = [];
     if (project.type === 'firmware-kit' && tab === 'builds') {
+      // A CI kit-bundle (.zip) may exist per version — offer it as a download.
+      const bundles = new Map<string, { hashId: string; artifactId: string; name: string }>();
+      for (const a of await platform.listArtifacts(project)) {
+        if (a.kind?.toLowerCase() === 'zip' && a.version && a.hashId && a.artifactId && !bundles.has(a.version)) {
+          bundles.set(a.version, { hashId: a.hashId, artifactId: a.artifactId, name: a.name });
+        }
+      }
       const order: string[] = [];
       const map: Record<string, { version: string; at: string; comps?: Record<string, string>; channels: Record<string, Partial<Record<Env, string>>> }> = {};
       for (const d of deployments) {
@@ -236,6 +243,7 @@ export async function pageRoutes(app: FastifyInstance): Promise<void> {
           at: r.at,
           components: r.comps ? Object.entries(r.comps).map(([name, version]) => ({ name, version })) : [],
           channels: Object.entries(r.channels).map(([name, cells]) => ({ name, cells })),
+          bundle: bundles.get(r.version),
         });
       }
     }
@@ -468,6 +476,18 @@ export async function pageRoutes(app: FastifyInstance): Promise<void> {
       } catch (err) {
         return reply.code(502).send({ error: err instanceof Error ? err.message : 'Failed to fetch manifest' });
       }
+    },
+  );
+
+  // Download a build artifact: fetch a presigned S3 URL from the platform and
+  // redirect the browser to it (the URL is short-lived and works cross-origin).
+  app.get<{ Params: { hashId: string; artifactId: string } }>(
+    '/cicd/artifacts/:hashId/:artifactId/download',
+    { preHandler: requireAuth },
+    async (request, reply) => {
+      const url = await platform.artifactDownloadUrl(request.params.hashId, request.params.artifactId);
+      if (!url) return reply.code(404).send({ error: 'Artifact not found' });
+      return reply.redirect(url);
     },
   );
 
