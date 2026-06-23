@@ -90,6 +90,8 @@
             <span class="badge info">v<%= r.version %></span>
             <% r.channels.forEach(function (c) { %><span class="small"><b><%= c.name.replace(/ Release$/i,'') %></b>: <%= it.ENVS.filter(function(e){return c.cells[e];}).join(', ') || '—' %></span><% }) %>
             <span class="grow"></span>
+            <% if (r.release && r.release.url) { %><a class="small" href="<%= r.release.url %>" target="_blank" rel="noopener" onclick="event.stopPropagation();" title="<%= r.release.notesShort || 'View GitHub Release' %>">GitHub Release ↗</a>
+            <% } else if (r.release && r.release.status === 'pending') { %><span class="small faint" title="Release publishes on first non-dev deploy">release pending</span><% } %>
             <% if (r.bundle) { %><a class="small" href="/cicd/artifacts/<%= r.bundle.hashId %>/<%= r.bundle.artifactId %>/download" onclick="event.stopPropagation();" title="Download kit bundle (<%= r.bundle.name %>)">bundle ↓</a><% } %>
             <span class="small faint"><%~ it.timeAgo(r.at) %></span>
           </summary>
