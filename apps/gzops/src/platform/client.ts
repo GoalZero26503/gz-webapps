@@ -574,6 +574,8 @@ function normalizeArtifact(raw: Record<string, unknown>, project: Project): Arti
     buildNumber: typeof raw.build_number === 'number' ? raw.build_number : undefined,
     hashId: typeof raw.hash_id === 'string' ? raw.hash_id : undefined,
     artifactId: typeof raw.artifact_id === 'string' ? raw.artifact_id : undefined,
+    gitSha: typeof raw.git_sha === 'string' ? raw.git_sha : undefined,
+    workflowUrl: typeof raw.workflow_run_url === 'string' ? raw.workflow_run_url : undefined,
     envs: artifactEnvStatus(raw, project),
   };
 }

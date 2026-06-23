@@ -9,6 +9,13 @@
         <% if (a.uploadedAt) { %> · <span title="<%= a.uploadedAt %><% if (a.uploadedBy) { %> · <%= a.uploadedBy %><% } %>"><%~ it.timeAgo(a.uploadedAt) %></span><% } %>
       </div>
     </td>
+    <td style="text-align:center;">
+      <% if (a.gitSha) { %>
+        <% var _repo = (it.project.repo || '').replace(/^https?:\/\//, '').replace(/^github\.com\//, ''); %>
+        <% var _href = a.workflowUrl || (_repo ? ('https://github.com/' + _repo + '/commit/' + a.gitSha) : ''); %>
+        <% if (_href) { %><a class="dl-name mono small" href="<%= _href %>" target="_blank" rel="noopener" title="<%= a.workflowUrl ? ('CI run · ' + a.gitSha) : ('Commit ' + a.gitSha) %>"><%= a.gitSha.slice(0, 7) %></a><% } else { %><span class="mono small faint"><%= a.gitSha.slice(0, 7) %></span><% } %>
+      <% } else { %><span class="faint" style="opacity:.35;">·</span><% } %>
+    </td>
     <% it.ENVS.forEach(function (e) { %>
       <% var st = a.envs[e]; %>
       <td style="text-align:center;">
@@ -30,7 +37,7 @@
 <% }) %>
 <% if (it.artifactNextOffset !== null && it.artifactNextOffset !== undefined) { %>
   <tr id="artifact-more">
-    <td colspan="<%= it.ENVS.length + 1 %>" style="text-align:center;">
+    <td colspan="<%= it.ENVS.length + 2 %>" style="text-align:center;">
       <button class="btn sm" hx-get="/cicd/projects/<%= it.project.id %>/artifacts?offset=<%= it.artifactNextOffset %>"
               hx-target="#artifact-more" hx-swap="outerHTML">Load more</button>
     </td>

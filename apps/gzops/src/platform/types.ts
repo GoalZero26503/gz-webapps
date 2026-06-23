@@ -251,6 +251,9 @@ export interface Artifact {
   /** Owning build hash + this artifact's id (used to build the download URL). */
   hashId?: string;
   artifactId?: string;
+  /** The commit that produced the build + its CI workflow run (if recorded). */
+  gitSha?: string;
+  workflowUrl?: string;
   /** Per-env deploy eligibility/state. */
   envs: Partial<Record<Env, 'deployed' | 'eligible' | 'ineligible'>>;
 }
