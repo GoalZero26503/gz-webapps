@@ -314,6 +314,13 @@ select:focus {
 a.dl-name { color: inherit; text-decoration: none; }
 a.dl-name:hover, a.dl-name:focus, a.dl-name:active { color: var(--gz-green); }
 
+/* Inline JSON preview (derived manifest) — contained, scrollable code block. */
+pre.dc-json {
+  background: var(--bg-primary); border: 1px solid var(--border); border-radius: var(--radius-sm);
+  padding: 10px 12px; margin: 0; font-size: 11.5px; line-height: 1.45; color: var(--text-secondary);
+  overflow-x: auto; white-space: pre; max-height: 360px; overflow-y: auto;
+}
+
 /* Chips — small inline tags (env lists, host ids, pipeline refs) */
 .chips { display: flex; flex-wrap: wrap; gap: 6px; }
 .chip {

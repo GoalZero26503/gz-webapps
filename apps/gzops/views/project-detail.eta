@@ -208,6 +208,26 @@
                 <% Object.keys(r.manifest.iNodes||{}).forEach(function(slot){ %><tr><td class="mono"><%= slot %></td><td class="mono"><%= r.manifest.iNodes[slot] %></td></tr><% }) %>
                 <% Object.keys(r.manifest.xNodes||{}).forEach(function(slot){ %><tr><td class="mono"><%= slot %> <span class="small faint">(xNode)</span></td><td class="mono"><%= r.manifest.xNodes[slot] %></td></tr><% }) %>
               </tbody></table>
+              <%
+                /* Build the published manifest shape: slots → node ids (N-{sku}-{slot}). */
+                var iN = r.manifest.iNodes || {}, xN = r.manifest.xNodes || {};
+                var hostForSku = (r.build_targets || []).filter(function(t){ return t !== '*'; })[0] || ((dc.kit.host_ids||[])[0]) || '';
+                var sku = hostForSku ? hostForSku.split('-')[1] : '{product}';
+                var nid = function(slot){ return 'N-' + sku + '-' + slot; };
+                var app = { iNodes: {} };
+                Object.keys(iN).forEach(function(s){ app.iNodes[nid(s)] = iN[s]; });
+                if (Object.keys(xN).length) { app.xNodes = {}; Object.keys(xN).forEach(function(s){ app.xNodes[s] = xN[s]; }); }
+                var url = function(id, v){ return 'https://gz-{env}-firmware-images.s3.amazonaws.com/' + id + '/' + v + '.bin'; };
+                var pop = { version: r.version || '', iNodes: {} };
+                Object.keys(iN).forEach(function(s){ var id = nid(s); pop.iNodes[id] = { version: iN[s], url: url(id, iN[s]), urlSignature: '', keyId: '' }; });
+                if (Object.keys(xN).length) { pop.xNodes = {}; Object.keys(xN).forEach(function(s){ pop.xNodes[s] = { version: xN[s], url: url(s, xN[s]), urlSignature: '', keyId: '' }; }); }
+              %>
+              <details style="margin-top:8px;"><summary class="small" style="cursor:pointer;">View published JSON</summary>
+                <div class="small faint" style="margin:8px 0 2px;">app channel — <span class="mono"><%= (hostForSku||'{host}') %>/<%= r.version||'{version}' %>.json</span> (minimized)</div>
+                <pre class="mono dc-json"><%= JSON.stringify(app, null, 2) %></pre>
+                <div class="small faint" style="margin:10px 0 2px;">manual / warehouse channel (populated · urls illustrative)</div>
+                <pre class="mono dc-json"><%= JSON.stringify(pop, null, 2) %></pre>
+              </details>
             </div></div>
           <% }) %>
         </details>
