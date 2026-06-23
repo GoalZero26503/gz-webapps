@@ -2,8 +2,7 @@
   <tr>
     <td>
       <div class="mono" style="font-size:12px;">
-        <%= a.name %>
-        <% if (a.hashId && a.artifactId) { %><a class="small" style="margin-left:8px;" href="/cicd/artifacts/<%= a.hashId %>/<%= a.artifactId %>/download" title="Download artifact">↓</a><% } %>
+        <% if (a.hashId && a.artifactId) { %><a href="/cicd/artifacts/<%= a.hashId %>/<%= a.artifactId %>/download" title="Download <%= a.name %>"><%= a.name %></a> <span class="small faint">↓</span><% } else { %><%= a.name %><% } %>
       </div>
       <div class="small faint">
         <%= a.size %> · <%= a.kind %><% if (a.version) { %> · v<%= a.version %><% if (a.buildNumber != null) { %>.<%= a.buildNumber %><% } %><% } %>

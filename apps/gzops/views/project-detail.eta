@@ -63,6 +63,8 @@
     </div></div>
   <% } %>
 
+  <% /* firmware-node has no standalone deploys, so its deploy-activity table is always empty — omit it. */ %>
+  <% if (it.project.type !== 'firmware-node') { %>
   <div class="card"><div class="card-head"><h2>Deploy activity</h2></div><div class="card-body flush">
     <table class="tbl"><thead><tr><th>Status</th><th>Version</th><th>Env</th><th>Pipeline</th><th>By</th><th>When</th></tr></thead><tbody>
       <% if (!it.deployments.length) { %><tr><td colspan="6"><div class="empty-state">No deployments yet</div></td></tr><% } %>
@@ -75,6 +77,7 @@
       <% }) %>
     </tbody></table>
   </div></div>
+  <% } %>
 <% } else if (it.tab === 'builds' && it.project.type === 'firmware-kit') { %>
   <div class="card"><div class="card-head"><span class="accent-bar"></span><h2>Releases</h2><span class="grow"></span><span class="small faint"><%= it.kitReleases.length %> release<%= it.kitReleases.length === 1 ? '' : 's' %> · newest first</span></div>
     <div class="card-body">
@@ -113,6 +116,9 @@
 <% } else if (it.tab === 'builds') { %>
   <div id="deploy-tile"></div>
   <div class="card"><div class="card-head"><span class="accent-bar"></span><h2>Artifacts</h2><span class="grow"></span><span class="small faint"><%= it.artifactTotal %> artifact<%= it.artifactTotal === 1 ? '' : 's' %> · newest first</span></div>
+    <% if (it.project.type === 'firmware-node') { %>
+      <div class="card-body" style="padding-bottom:0;"><div class="small faint">To deploy <span class="mono">firmware-node</span> artifacts, create a release in a <span class="mono">firmware-kit</span> project.</div></div>
+    <% } %>
     <% if (it.artifactTotal === 0) { %>
       <div class="card-body"><div class="small faint">No artifacts uploaded yet for this project.</div></div>
     <% } else { %>
