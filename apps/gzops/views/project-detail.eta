@@ -33,6 +33,15 @@
     </div>
   </div>
 
+  <% if (it.project.type === 'firmware-node') { %>
+    <div class="card"><div class="card-head"><h2>Included in kits</h2></div><div class="card-body">
+      <div class="small faint" style="margin-bottom:8px;">This node ships to devices via the kit(s) below — it has no standalone deploy.</div>
+      <% if ((it.includingKits || []).length) { %>
+        <div class="chips"><% it.includingKits.forEach(function (k) { %><a class="chip" href="/cicd/projects/<%= k.id %>"><%= k.name %></a><% }) %></div>
+      <% } else { %><div class="small faint">Not currently referenced by any kit.</div><% } %>
+    </div></div>
+  <% } %>
+
   <% if (it.project.type === 'mobile') { %>
     <div class="card"><div class="card-head"><h2>Distribution</h2></div><div class="card-body"><div class="dist-grid">
       <% Object.keys(it.project.cohorts || {}).forEach(function (store) { %>
