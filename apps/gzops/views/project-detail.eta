@@ -125,7 +125,7 @@
       <div class="card-body"><div class="small faint">No artifacts uploaded yet for this project.</div></div>
     <% } else { %>
     <div class="card-body flush"><table class="tbl">
-      <thead><tr><th>Artifact</th><% it.ENVS.forEach(function (e) { %><th style="text-align:center;"><%= e %></th><% }) %></tr></thead>
+      <thead><tr><th>Artifact</th><th style="text-align:center;">Commit</th><% it.ENVS.forEach(function (e) { %><th style="text-align:center;"><%= e %></th><% }) %></tr></thead>
       <tbody>
         <%~ include('partials/artifact-rows', it) %>
       </tbody>

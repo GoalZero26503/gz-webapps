@@ -310,9 +310,12 @@ select:focus {
 .block { display: flex; justify-content: center; width: 100%; }
 .label-caps { font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-tertiary); }
 
-/* Artifact download links: read as plain filenames, accent only on interaction. */
-a.dl-name { color: inherit; text-decoration: none; }
-a.dl-name:hover, a.dl-name:focus, a.dl-name:active { color: var(--gz-green); }
+/* Artifact download links: read as plain filenames, accent only on interaction.
+   `.tbl a` (green) has equal specificity + comes later in the file, so qualify
+   with .tbl here to win the cascade. */
+a.dl-name, .tbl a.dl-name { color: inherit; text-decoration: none; }
+a.dl-name:hover, a.dl-name:focus, a.dl-name:active,
+.tbl a.dl-name:hover, .tbl a.dl-name:focus, .tbl a.dl-name:active { color: var(--gz-green); }
 
 /* Inline JSON preview (derived manifest) — contained, scrollable code block. */
 pre.dc-json {
