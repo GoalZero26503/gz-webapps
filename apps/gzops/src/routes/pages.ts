@@ -47,6 +47,21 @@ async function enrichKitComponents(kitProjects: Project[]): Promise<Project[]> {
   return nodeIds.size ? platform.getProjectsByIds([...nodeIds], { withState: true }) : [];
 }
 
+/**
+ * Reverse of enrichKitComponents: which firmware-kit(s) include this node project
+ * as a component. firmware-node projects don't deploy standalone (Phase 4) — they
+ * ship via a kit — so their page surfaces the kits that carry them.
+ */
+async function kitsIncluding(nodeProjectId: string): Promise<{ id: string; name: string }[]> {
+  const kits = (await platform.listProjects()).filter((p) => p.type === 'firmware-kit');
+  const out: { id: string; name: string }[] = [];
+  for (const k of kits) {
+    const dc = await platform.getDeployConfig(k.id).catch(() => null);
+    if ((dc?.kit?.components ?? []).some((c) => c.project === nodeProjectId)) out.push({ id: k.id, name: k.name });
+  }
+  return out;
+}
+
 /** Compact a /health gzopsHash for a tile: short hash, or the date when it's a
  *  `local-<unix>` fallback (no gzops hash was computed for that deploy). */
 function formatHash(h?: string): string {
@@ -193,6 +208,10 @@ export async function pageRoutes(app: FastifyInstance): Promise<void> {
     const componentProjects = project.type === 'firmware-kit' && tab === 'deployment'
       ? await enrichKitComponents([project])
       : [];
+    // firmware-node pages show which kit(s) carry this node (no standalone deploy).
+    const includingKits = project.type === 'firmware-node' && tab === 'deployment'
+      ? await kitsIncluding(project.id)
+      : [];
     // The component matrix references this project plus its component node
     // projects (enriched with env-state) so each row shows its deployed versions.
     const projects = [project, ...componentProjects];
@@ -263,6 +282,7 @@ export async function pageRoutes(app: FastifyInstance): Promise<void> {
       deployments,
       latestByEnv,
       latestByChannelEnv,
+      includingKits,
       kitReleases,
       artifacts: allArtifacts.slice(0, ARTIFACT_PAGE),
       artifactTotal: allArtifacts.length,
