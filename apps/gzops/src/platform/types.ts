@@ -90,6 +90,14 @@ export interface Deployment {
   componentVersions?: Record<string, string>;
 }
 
+/** Version lock = the immutable (project, version)→hash binding + published GitHub Release. */
+export interface VersionLock {
+  version: string;
+  publish_status: 'pending' | 'published' | 'failed' | 'skipped';
+  github?: { tag?: string; release_url?: string };
+  release_notes?: { short?: string; full?: string };
+}
+
 /** A composed firmware-kit release (one kit version) for the RELEASES tab. */
 export interface KitReleaseRow {
   version: string;
@@ -99,6 +107,8 @@ export interface KitReleaseRow {
   channels: { name: string; cells: Partial<Record<Env, string>> }[];
   /** The CI kit-bundle (.zip) for this version, if one was built — download link. */
   bundle?: { hashId: string; artifactId: string; name: string };
+  /** GitHub Release published on first non-dev deploy (version-lock), if any. */
+  release?: { url?: string; status: string; notesShort?: string };
 }
 
 /** A single project's version in one environment (Environments lens row). */

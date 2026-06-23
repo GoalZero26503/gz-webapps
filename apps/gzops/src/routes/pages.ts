@@ -239,12 +239,15 @@ export async function pageRoutes(app: FastifyInstance): Promise<void> {
     const kitReleases: KitReleaseRow[] = [];
     if (project.type === 'firmware-kit' && tab === 'builds') {
       // A CI kit-bundle (.zip) may exist per version — offer it as a download.
+      // Version locks carry the GitHub Release published on first non-dev deploy.
+      const [artifacts, locks] = await Promise.all([platform.listArtifacts(project), platform.listVersionLocks(project.id)]);
       const bundles = new Map<string, { hashId: string; artifactId: string; name: string }>();
-      for (const a of await platform.listArtifacts(project)) {
+      for (const a of artifacts) {
         if (a.kind?.toLowerCase() === 'zip' && a.version && a.hashId && a.artifactId && !bundles.has(a.version)) {
           bundles.set(a.version, { hashId: a.hashId, artifactId: a.artifactId, name: a.name });
         }
       }
+      const releaseByVersion = new Map(locks.map((l) => [l.version, l]));
       const order: string[] = [];
       const map: Record<string, { version: string; at: string; comps?: Record<string, string>; channels: Record<string, Partial<Record<Env, string>>> }> = {};
       for (const d of deployments) {
@@ -257,12 +260,14 @@ export async function pageRoutes(app: FastifyInstance): Promise<void> {
       }
       for (const v of order) {
         const r = map[v];
+        const lock = releaseByVersion.get(r.version);
         kitReleases.push({
           version: r.version,
           at: r.at,
           components: r.comps ? Object.entries(r.comps).map(([name, version]) => ({ name, version })) : [],
           channels: Object.entries(r.channels).map(([name, cells]) => ({ name, cells })),
           bundle: bundles.get(r.version),
+          release: lock ? { url: lock.github?.release_url, status: lock.publish_status, notesShort: lock.release_notes?.short } : undefined,
         });
       }
     }

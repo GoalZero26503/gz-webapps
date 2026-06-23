@@ -43,6 +43,7 @@ import {
   type Project,
   type Rail,
   type RailCell,
+  type VersionLock,
 } from './types.js';
 
 const pickStr = (v: unknown): string | undefined => (typeof v === 'string' && v ? v : undefined);
@@ -294,6 +295,15 @@ class PlatformClient {
   async getDeployConfig(projectId: string): Promise<DeployConfig> {
     if (this.isFake) return this.fakeConfigs.get(projectId) ?? this.fakeDeployConfig(projectId);
     return this.getJson<DeployConfig>(`/projects/${encodeURIComponent(projectId)}/deploy-config`);
+  }
+
+  /** Version locks for a project — the GitHub Release published on first non-dev deploy. */
+  async listVersionLocks(projectId: string): Promise<VersionLock[]> {
+    if (this.isFake) return [];
+    const res = await this.getJson<{ version_locks?: VersionLock[] }>(
+      `/projects/${encodeURIComponent(projectId)}/version-locks`,
+    ).catch(() => ({ version_locks: [] as VersionLock[] }));
+    return res.version_locks ?? [];
   }
 
   /** Distinct built artifact versions for a node project, newest-first (release dropdown). */
