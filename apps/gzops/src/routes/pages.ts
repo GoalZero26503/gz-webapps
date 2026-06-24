@@ -490,6 +490,13 @@ export async function pageRoutes(app: FastifyInstance): Promise<void> {
     });
   });
 
+  // Lightweight JSON status for client-side polling (the Create Release progress UI).
+  app.get<{ Params: { id: string } }>('/cicd/deployments/:id/status', { preHandler: requireAuth }, async (request, reply) => {
+    const d = await platform.getDeployment(request.params.id);
+    if (!d) return reply.code(404).send({ error: 'not found' });
+    return reply.send({ id: d.id, status: d.status, progress: d.progress ?? null, note: d.note ?? null, env: d.env, version: d.version });
+  });
+
   // Fetch a published manifest's body for view (inline) or download. Proxies the
   // platform (which reads it from S3) so the browser never touches S3 directly.
   app.get<{ Params: { id: string }; Querystring: { key?: string; download?: string } }>(
