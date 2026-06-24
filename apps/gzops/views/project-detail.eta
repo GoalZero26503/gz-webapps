@@ -107,7 +107,7 @@
           <% } %>
           <span class="small faint"><%~ it.timeAgo(r.at) %></span>
         </summary>
-        <%~ include('partials/kit-release-body', { r: r, ENVS: it.ENVS }) %>
+        <%~ include('partials/kit-release-body', { r: r, ENVS: it.ENVS, deployable: false, projectId: it.project.id }) %>
       </details>
     <% }) %>
   </div></div>
@@ -128,7 +128,7 @@
           <% if (r.bundle) { %><a class="small" href="/cicd/artifacts/<%= r.bundle.hashId %>/<%= r.bundle.artifactId %>/download" onclick="event.stopPropagation();" title="Download kit bundle (<%= r.bundle.name %>)">bundle ↓</a><% } %>
           <span class="small faint"><%~ it.timeAgo(r.at) %></span>
         </summary>
-        <%~ include('partials/kit-release-body', { r: r, ENVS: it.ENVS }) %>
+        <%~ include('partials/kit-release-body', { r: r, ENVS: it.ENVS, deployable: it.canDeploy, projectId: it.project.id }) %>
       </details>
     <% }) %>
   </div></div>

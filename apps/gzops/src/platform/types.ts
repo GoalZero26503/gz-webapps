@@ -107,8 +107,9 @@ export interface KitReleaseRow {
   /** The draft's dev deployment — what Cut Release freezes/tags. */
   cutFromDeploymentId?: string;
   components: { name: string; version: string }[];
-  /** Per channel, which envs this version reached → the deployment id (for linking). */
-  channels: { name: string; cells: Partial<Record<Env, string>> }[];
+  /** Per channel, which envs this version reached → the deployment id (for linking).
+   *  `key` is the raw pipeline name — the deploy target the basket fires. */
+  channels: { name: string; key: string; cells: Partial<Record<Env, string>> }[];
   /** The CI kit-bundle (.zip) for this version, if one was built — download link. */
   bundle?: { hashId: string; artifactId: string; name: string };
   /** GitHub Release (version-lock) created when the kit was cut, if any. */
