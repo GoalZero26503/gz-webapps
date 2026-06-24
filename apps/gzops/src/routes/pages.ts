@@ -377,7 +377,8 @@ export async function pageRoutes(app: FastifyInstance): Promise<void> {
           set: c.set ?? 'iNode',
           slots: c.slots ?? [],
           project: c.project,
-          versions: c.project ? await platform.availableVersions(c.project) : [],
+          artifact: c.artifact,
+          versions: c.project ? await platform.availableVersions(c.project, c.artifact) : [],
         })),
       );
       const suggested = nextKitVersion((kit.releases ?? []).map((r) => r.version ?? '').filter(Boolean));

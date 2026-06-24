@@ -307,14 +307,32 @@ class PlatformClient {
     return res.version_locks ?? [];
   }
 
-  /** Distinct built artifact versions for a node project, newest-first (release dropdown). */
-  async availableVersions(projectId: string): Promise<string[]> {
+  /**
+   * Distinct built artifact versions for a node project, newest-first (release dropdown).
+   * For a multi-variant project, pass the component's `artifact` (build_pipeline/variant
+   * token) — versions are then filtered to that variant and read from the artifact filename
+   * (a build ships every variant at its own version, so the hash `version` is unreliable).
+   */
+  async availableVersions(projectId: string, artifact?: string): Promise<string[]> {
     if (this.isFake) return ['2.6.0', '2.5.9', '2.5.8'];
-    const res = await this.getJson<{ artifacts?: { version?: string }[] }>(
+    const res = await this.getJson<{ artifacts?: { version?: string; name?: string; build_pipeline?: string; artifact_def_id?: string }[] }>(
       `/projects/${encodeURIComponent(projectId)}/artifacts?limit=200`,
-    ).catch(() => ({ artifacts: [] as { version?: string }[] }));
+    ).catch(() => ({ artifacts: [] as { version?: string; name?: string; build_pipeline?: string; artifact_def_id?: string }[] }));
+    // Reduce a build_pipeline / artifact_def_id to its variant token
+    // ("y300-hp-bundle" → "y300-hp", "pcu" → "pcu").
+    const variantOf = (s: string): string => s.replace(/-(bundle|ota|image|fw|firmware)$/i, '');
+    const want = artifact ? variantOf(artifact) : '';
     const set = new Set<string>();
-    for (const a of res.artifacts ?? []) if (a.version) set.add(a.version);
+    for (const a of res.artifacts ?? []) {
+      if (artifact) {
+        const matches = a.build_pipeline === want || variantOf(a.artifact_def_id ?? '') === want;
+        if (!matches) continue;
+        const v = a.name?.match(/\.v(\d+\.\d+\.\d+)(?:\.|$)/)?.[1];
+        if (v) set.add(v);
+      } else if (a.version) {
+        set.add(a.version);
+      }
+    }
     return [...set].sort((a, b) => b.localeCompare(a, undefined, { numeric: true }));
   }
 
