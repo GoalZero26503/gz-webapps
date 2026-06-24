@@ -23,10 +23,16 @@
 
 <% if (it.tab === 'deployment') { %>
   <div class="card">
-    <div class="card-head"><span class="accent-bar"></span><h2>Deployed</h2></div>
+    <div class="card-head"><span class="accent-bar"></span><h2>Deployed</h2><span class="grow"></span>
+      <span class="small faint"><% if (it.project.type === 'firmware-kit') { %>release version · channel × environment<% } else { %>version per environment<% } %></span>
+    </div>
     <div class="card-body">
       <% if (it.project.type === 'firmware-kit' && it.project.channels) { %>
-        <%~ it.channelRail(it.project.channels, navForChannel) %>
+        <%~ it.channelRail(it.project.channels, navForChannel, true) %>
+        <div class="rail-legend">
+          <span><span class="warn-flag">⚠</span> warehouse = factory auto-update</span>
+          <span class="rl-line">│ dev is the pre-release (draft) zone — promote left → right</span>
+        </div>
       <% } else { %>
         <%~ it.rail(it.project.rail || {}, true, navFor) %>
       <% } %>
@@ -58,8 +64,8 @@
   <% } %>
 
   <% if (it.project.type === 'firmware-kit') { %>
-    <div class="card"><div class="card-head"><h2>Components</h2></div><div class="card-body">
-      <%~ it.componentMatrix(it.project.components, it.projectsById) %>
+    <div class="card"><div class="card-head"><span class="accent-bar"></span><h2>Component versions</h2><span class="grow"></span><span class="small faint">version · component × environment</span></div><div class="card-body">
+      <%~ it.componentMatrix(it.project.components, it.projectsById, true, true) %>
     </div></div>
   <% } %>
 
