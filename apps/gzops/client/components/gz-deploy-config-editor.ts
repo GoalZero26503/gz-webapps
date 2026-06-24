@@ -15,7 +15,7 @@ import { customElement, property, state } from 'lit/decorators.js';
 
 interface Pipeline { name: string; plugin: string; runner?: string; config?: Record<string, unknown> }
 interface ArtifactDef { id: string; name_pattern: string; build_pipeline: string; deploy_pipelines: string[]; envs?: string[] }
-interface KitComp { name: string; project: string; set?: 'iNode' | 'xNode'; slots?: string[]; version?: string }
+interface KitComp { name: string; project: string; set?: 'iNode' | 'xNode'; slots?: string[]; artifact?: string; version?: string }
 interface KitRelease { version?: string; build_targets?: string[]; manifest: { iNodes: Record<string, string>; xNodes?: Record<string, string> } }
 interface Kit { host_ids: string[]; components?: KitComp[]; releases: KitRelease[] }
 interface HealthCfg { url: string; environments?: string[]; overrides?: Record<string, string> }
@@ -215,6 +215,8 @@ export class GzDeployConfigEditor extends LitElement {
           </div>
           <input class="dc-in mono" placeholder=${(c.set ?? 'iNode') === 'xNode' ? 'N-23110-A2-1' : 'A*-1'} .value=${(c.slots ?? []).join(', ')}
             @input=${(ev: Event) => { c.slots = (ev.target as HTMLInputElement).value.split(',').map((s) => s.trim()).filter(Boolean); }} />
+          <input class="dc-in mono" style="max-width:130px;" placeholder="artifact (opt.)" title="build_pipeline/variant token for multi-variant node projects (e.g. y300-hp). Leave blank for single-artifact projects." .value=${c.artifact ?? ''}
+            @input=${(ev: Event) => { const v = (ev.target as HTMLInputElement).value.trim(); c.artifact = v || undefined; }} />
           <button type="button" class="btn sm ghost" @click=${() => { kit.components!.splice(i, 1); this.bump(); }}>✕</button>
         </div>`)}
       <button type="button" class="btn sm" @click=${() => { kit.components = [...(kit.components ?? []), { name: '', project: '', set: 'iNode', slots: [] }]; this.bump(); }}>+ Add component</button>

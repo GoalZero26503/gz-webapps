@@ -188,6 +188,9 @@ export interface KitConfigComponent {
   project: string;
   set?: 'iNode' | 'xNode';
   slots?: string[];
+  /** build_pipeline/variant token (e.g. "y300-hp") for multi-variant node projects —
+   *  filters version listing + binary staging to this artifact. Omit for single-artifact projects. */
+  artifact?: string;
   version?: string;
 }
 
