@@ -9,7 +9,7 @@
     <div class="sub mono small"><%= it.project.repo %></div>
   </div>
   <% if (it.project.type === 'firmware-kit' && it.canDeploy && it.tab === 'deployment') { %>
-    <a class="btn btn-primary" href="/cicd/projects/<%= it.project.id %>/release/new"><i class="icon-rocket"></i> Create release</a>
+    <a class="btn btn-primary" href="/cicd/projects/<%= it.project.id %>/release/new"><i class="icon-rocket"></i> New dev kit</a>
   <% } %>
 </div>
 
@@ -91,7 +91,7 @@
   <%~ /* Drafts · Dev Kits — mutable, dev-only, not yet cut. */ '' %>
   <div style="display:flex;align-items:baseline;gap:10px;margin:4px 2px 10px;"><span class="label-caps">Drafts · Dev Kits</span><span class="small faint">dev-only · not yet cut as a release</span></div>
   <div class="card"><div class="card-body">
-    <% if (!drafts.length) { %><div class="small faint">No dev kits in progress — compose one with <span class="mono">Create release</span> targeting <span class="mono">dev</span>.</div><% } %>
+    <% if (!drafts.length) { %><div class="small faint">No dev kits in progress — start one with <span class="mono">New dev kit</span>.</div><% } %>
     <% drafts.forEach(function (r) { %>
       <details class="dc-card" style="margin-bottom:10px;">
         <summary style="cursor:pointer;display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
