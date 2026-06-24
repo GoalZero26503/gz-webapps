@@ -258,7 +258,9 @@ export async function pageRoutes(app: FastifyInstance): Promise<void> {
       for (const d of deployments) {
         if (!map[d.version]) { map[d.version] = { version: d.version, at: d.at, channels: {} }; order.push(d.version); }
         const r = map[d.version];
-        const ch = channelLabel(d.pipeline);
+        // Key channels by the raw pipeline name (the deploy target the basket fires);
+        // channelLabel() is applied only for display.
+        const ch = d.pipeline;
         (r.channels[ch] ??= {});
         if (!r.channels[ch][d.env]) r.channels[ch][d.env] = d.id;
         if (!r.comps && d.componentVersions) r.comps = d.componentVersions;
@@ -276,7 +278,7 @@ export async function pageRoutes(app: FastifyInstance): Promise<void> {
           isDraft: !lock,
           cutFromDeploymentId,
           components: r.comps ? Object.entries(r.comps).map(([name, version]) => ({ name, version })) : [],
-          channels: Object.entries(r.channels).map(([name, cells]) => ({ name, cells })),
+          channels: Object.entries(r.channels).map(([key, cells]) => ({ name: channelLabel(key), key, cells })),
           bundle: bundles.get(r.version),
           release: lock ? { url: lock.github?.release_url, status: lock.publish_status, notesShort: lock.release_notes?.short } : undefined,
         });
@@ -458,6 +460,68 @@ export async function pageRoutes(app: FastifyInstance): Promise<void> {
       } catch (err) {
         return fail(err instanceof Error ? err.message : 'error');
       }
+    },
+  );
+
+  // ── Deploy basket (cut release → env × channel) ──────────────────────────
+  // The Releases coverage matrix stages empty cells as `target=<pipeline>|<env>`
+  // checkboxes; review renders a confirmation (prod + warehouse warnings); submit
+  // fires kit-release per env with the release's frozen component versions.
+  const parseTargets = (raw: unknown): { key: string; env: string }[] => {
+    const arr = Array.isArray(raw) ? raw : raw ? [raw as string] : [];
+    return arr
+      .map((t) => String(t).split('|'))
+      .filter((p) => p.length === 2 && (ENVS as readonly string[]).includes(p[1]))
+      .map(([key, env]) => ({ key, env }));
+  };
+
+  app.post<{ Params: { id: string }; Body: { kit_version?: string; versions?: string; target?: string | string[] } }>(
+    '/cicd/projects/:id/kit-deploy/review',
+    { preHandler: requirePermission('deploys:create') },
+    async (request, reply) => {
+      const b = request.body ?? {};
+      const targets = parseTargets(b.target);
+      if (!b.kit_version || targets.length === 0) {
+        return reply.type('text/html').send('<div class="small faint">Select one or more cells to deploy.</div>');
+      }
+      const rows = targets
+        .map((t) => ({ ...t, label: channelLabel(t.key), isProd: t.env === 'prod', isWarehouse: /warehouse/i.test(t.key) }))
+        .sort((a, b2) => ENVS.indexOf(a.env as Env) - ENVS.indexOf(b2.env as Env));
+      return reply.view('partials/kit-deploy-review.eta', {
+        projectId: request.params.id,
+        kitVersion: b.kit_version,
+        versionsJson: b.versions ?? '{}',
+        targets: rows,
+        anyProd: rows.some((r) => r.isProd),
+        anyWarehouse: rows.some((r) => r.isWarehouse),
+      });
+    },
+  );
+
+  app.post<{ Params: { id: string }; Body: { kit_version?: string; versions?: string; target?: string | string[] } }>(
+    '/cicd/projects/:id/kit-deploy/submit',
+    { preHandler: requirePermission('deploys:create') },
+    async (request, reply) => {
+      const escHtml = (s: string): string => s.replace(/[<>&]/g, (c) => (c === '<' ? '&lt;' : c === '>' ? '&gt;' : '&amp;'));
+      const b = request.body ?? {};
+      const targets = parseTargets(b.target);
+      if (!b.kit_version || targets.length === 0) return reply.code(400).type('text/html').send('<div class="small" style="color:var(--red);">Nothing to deploy.</div>');
+      let versions: Record<string, string> = {};
+      try { versions = JSON.parse(b.versions || '{}'); } catch { /* empty */ }
+      // Group channels by env — kit-release takes one env + its channels per call.
+      const byEnv = new Map<string, string[]>();
+      for (const t of targets) { (byEnv.get(t.env) ?? byEnv.set(t.env, []).get(t.env)!).push(t.key); }
+      const errors: string[] = [];
+      for (const [env, channels] of byEnv) {
+        try {
+          await platform.createKitRelease(request.params.id, { versions, channels, environment: env, kit_version: b.kit_version, by: request.user!.email });
+        } catch (err) {
+          errors.push(`${env}: ${err instanceof Error ? err.message : 'failed'}`);
+        }
+      }
+      if (errors.length) return reply.code(502).type('text/html').send(`<div class="small" style="color:var(--red);">Some deploys failed — ${escHtml(errors.join('; '))}</div>`);
+      reply.header('HX-Redirect', `/cicd/projects/${request.params.id}?tab=builds`);
+      return reply.send('');
     },
   );
 

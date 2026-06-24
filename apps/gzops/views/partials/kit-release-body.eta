@@ -1,16 +1,38 @@
+<% var rid = it.r.version.replace(/[^a-zA-Z0-9]/g, '-'); %>
+<% var versionsJson = JSON.stringify((it.r.components || []).reduce(function (o, c) { o[c.name] = c.version; return o; }, {})); %>
 <div style="margin-top:10px;">
   <div class="label-caps" style="margin-bottom:6px;">Component versions</div>
   <% if (it.r.components.length) { %>
     <div class="chips" style="margin-bottom:12px;"><% it.r.components.forEach(function (c) { %><span class="chip mono"><%= c.name %> <%= c.version %></span><% }) %></div>
   <% } else { %><div class="small faint" style="margin-bottom:12px;">Not recorded (composed before component versions were tracked).</div><% } %>
-  <div class="label-caps" style="margin-bottom:6px;">Deployed to</div>
-  <table class="tbl"><thead><tr><th>Channel</th><% it.ENVS.forEach(function (e) { %><th style="text-align:center;"><%= e %></th><% }) %></tr></thead><tbody>
-    <% it.r.channels.forEach(function (c) { %>
-      <tr><td><%= c.name %></td>
-        <% it.ENVS.forEach(function (e) { %>
-          <td style="text-align:center;"><% if (c.cells[e]) { %><a class="badge ok" href="/cicd/deployments/<%= c.cells[e] %>" title="View deployment">✓</a><% } else { %><span class="faint" style="opacity:.35;">·</span><% } %></td>
+
+  <div class="label-caps" style="margin-bottom:6px;">Deployed to<% if (it.deployable) { %> <span class="small faint" style="text-transform:none;letter-spacing:0;">· check empty cells to stage a deploy</span><% } %></div>
+
+  <% if (it.deployable) { %>
+    <form hx-post="/cicd/projects/<%= it.projectId %>/kit-deploy/review" hx-target="#deploy-review-<%= rid %>" hx-swap="innerHTML">
+      <input type="hidden" name="kit_version" value="<%= it.r.version %>" />
+      <input type="hidden" name="versions" value="<%= versionsJson %>" />
+      <table class="tbl"><thead><tr><th>Channel</th><% it.ENVS.forEach(function (e) { %><th style="text-align:center;"><%= e %></th><% }) %></tr></thead><tbody>
+        <% it.r.channels.forEach(function (c) { %>
+          <tr><td><%= c.name %></td>
+            <% it.ENVS.forEach(function (e) { %>
+              <td style="text-align:center;"><% if (c.cells[e]) { %><a class="badge ok" href="/cicd/deployments/<%= c.cells[e] %>" title="Live — view deployment">✓</a><% } else { %><input type="checkbox" name="target" value="<%= c.key %>|<%= e %>" title="Deploy <%= c.name %> → <%= e %>" /><% } %></td>
+            <% }) %>
+          </tr>
         <% }) %>
-      </tr>
-    <% }) %>
-  </tbody></table>
+      </tbody></table>
+      <button class="btn" type="submit" style="margin-top:10px;padding:4px 10px;font-size:12px;">Review deploy →</button>
+    </form>
+    <div id="deploy-review-<%= rid %>"></div>
+  <% } else { %>
+    <table class="tbl"><thead><tr><th>Channel</th><% it.ENVS.forEach(function (e) { %><th style="text-align:center;"><%= e %></th><% }) %></tr></thead><tbody>
+      <% it.r.channels.forEach(function (c) { %>
+        <tr><td><%= c.name %></td>
+          <% it.ENVS.forEach(function (e) { %>
+            <td style="text-align:center;"><% if (c.cells[e]) { %><a class="badge ok" href="/cicd/deployments/<%= c.cells[e] %>" title="View deployment">✓</a><% } else { %><span class="faint" style="opacity:.35;">·</span><% } %></td>
+          <% }) %>
+        </tr>
+      <% }) %>
+    </tbody></table>
+  <% } %>
 </div>

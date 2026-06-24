@@ -1,0 +1,17 @@
+<div class="dc-card" style="padding:14px;margin-top:10px;border:1px solid var(--border-focus);">
+  <div class="label-caps" style="margin-bottom:8px;">Confirm deploy · v<%= it.kitVersion %> → <%= it.targets.length %> target<%= it.targets.length === 1 ? '' : 's' %></div>
+  <div style="margin-bottom:10px;">
+    <% it.targets.forEach(function (t) { %>
+      <div class="small mono" style="padding:4px 0;border-bottom:1px solid var(--border);"><b><%= t.label.replace(/ Release$/i,'') %></b> → <%= t.env %><% if (t.isWarehouse) { %> <span style="color:var(--yellow);">⚠ factory</span><% } %><% if (t.isProd) { %> <span style="color:var(--red);">⚠ prod</span><% } %></div>
+    <% }) %>
+  </div>
+  <% if (it.anyWarehouse) { %><div class="small" style="color:var(--yellow);background:rgba(255,205,29,.08);border:1px solid rgba(255,205,29,.25);border-radius:6px;padding:8px 11px;margin-bottom:8px;">Includes the <b>warehouse</b> channel — factory units auto-update on next boot. Make sure this is intended.</div><% } %>
+  <% if (it.anyProd) { %><div class="small" style="color:var(--red);background:var(--red-dim);border:1px solid rgba(255,83,29,.3);border-radius:6px;padding:8px 11px;margin-bottom:8px;">Includes <b>PRODUCTION</b> — devices in the field will receive this release.</div><% } %>
+  <form hx-post="/cicd/projects/<%= it.projectId %>/kit-deploy/submit" hx-target="#deploy-submit-msg" hx-swap="innerHTML">
+    <input type="hidden" name="kit_version" value="<%= it.kitVersion %>" />
+    <input type="hidden" name="versions" value="<%= it.versionsJson %>" />
+    <% it.targets.forEach(function (t) { %><input type="hidden" name="target" value="<%= t.key %>|<%= t.env %>" /><% }) %>
+    <button class="btn btn-primary" type="submit" style="padding:5px 12px;font-size:12px;">Deploy <%= it.targets.length %> target<%= it.targets.length === 1 ? '' : 's' %></button>
+    <span id="deploy-submit-msg" class="small" style="margin-left:10px;"></span>
+  </form>
+</div>
