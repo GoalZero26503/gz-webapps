@@ -14,11 +14,11 @@
 </div>
 
 <div class="filters">
-  <a class="pill <%= it.tab === 'deployment' ? 'active' : '' %>" href="/cicd/projects/<%= it.project.id %>?tab=deployment">DEPLOYMENT</a>
+  <a class="pill <%= it.tab === 'deployment' ? 'active' : '' %>" href="/cicd/projects/<%= it.project.id %>?tab=deployment">STATUS</a>
   <% if (it.project.type !== 'backend' && it.project.type !== 'cloud') { %>
-    <a class="pill <%= it.tab === 'builds' ? 'active' : '' %>" href="/cicd/projects/<%= it.project.id %>?tab=builds"><%= it.project.type === 'firmware-kit' ? 'RELEASES' : 'BUILDS' %></a>
+    <a class="pill <%= it.tab === 'builds' ? 'active' : '' %>" href="/cicd/projects/<%= it.project.id %>?tab=builds"><%= it.project.type === 'firmware-kit' ? 'KITS & RELEASES' : 'BUILDS' %></a>
   <% } %>
-  <a class="pill <%= it.tab === 'config' ? 'active' : '' %>" href="/cicd/projects/<%= it.project.id %>?tab=config">DEPLOY CONFIG</a>
+  <a class="pill <%= it.tab === 'config' ? 'active' : '' %>" href="/cicd/projects/<%= it.project.id %>?tab=config"><%= it.project.type === 'firmware-kit' ? 'KIT COMPOSITION' : 'DEPLOY CONFIG' %></a>
 </div>
 
 <% if (it.tab === 'deployment') { %>
@@ -65,7 +65,7 @@
 
   <% /* firmware-node has no standalone deploys, so its deploy-activity table is always empty — omit it. */ %>
   <% if (it.project.type !== 'firmware-node') { %>
-  <div class="card"><div class="card-head"><h2>Deploy activity</h2></div><div class="card-body flush">
+  <div class="card"><div class="card-head"><h2>Recent activity</h2><span class="grow"></span><span class="small faint">deployment events · newest first</span></div><div class="card-body flush">
     <table class="tbl"><thead><tr><th>Status</th><th>Version</th><th>Env</th><th>Pipeline</th><th>By</th><th>When</th></tr></thead><tbody>
       <% if (!it.deployments.length) { %><tr><td colspan="6"><div class="empty-state">No deployments yet</div></td></tr><% } %>
       <% it.deployments.forEach(function (d) { %>
