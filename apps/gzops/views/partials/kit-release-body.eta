@@ -1,0 +1,16 @@
+<div style="margin-top:10px;">
+  <div class="label-caps" style="margin-bottom:6px;">Component versions</div>
+  <% if (it.r.components.length) { %>
+    <div class="chips" style="margin-bottom:12px;"><% it.r.components.forEach(function (c) { %><span class="chip mono"><%= c.name %> <%= c.version %></span><% }) %></div>
+  <% } else { %><div class="small faint" style="margin-bottom:12px;">Not recorded (composed before component versions were tracked).</div><% } %>
+  <div class="label-caps" style="margin-bottom:6px;">Deployed to</div>
+  <table class="tbl"><thead><tr><th>Channel</th><% it.ENVS.forEach(function (e) { %><th style="text-align:center;"><%= e %></th><% }) %></tr></thead><tbody>
+    <% it.r.channels.forEach(function (c) { %>
+      <tr><td><%= c.name %></td>
+        <% it.ENVS.forEach(function (e) { %>
+          <td style="text-align:center;"><% if (c.cells[e]) { %><a class="badge ok" href="/cicd/deployments/<%= c.cells[e] %>" title="View deployment">✓</a><% } else { %><span class="faint" style="opacity:.35;">·</span><% } %></td>
+        <% }) %>
+      </tr>
+    <% }) %>
+  </tbody></table>
+</div>

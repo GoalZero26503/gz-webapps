@@ -266,9 +266,15 @@ export async function pageRoutes(app: FastifyInstance): Promise<void> {
       for (const v of order) {
         const r = map[v];
         const lock = releaseByVersion.get(r.version);
+        // A version with a lock is a CUT release; one deployed only to dev (no lock)
+        // is a Dev Kit (draft). The draft's dev deployment is what Cut Release freezes.
+        let cutFromDeploymentId: string | undefined;
+        for (const cells of Object.values(r.channels)) { if (cells.dev) { cutFromDeploymentId = cells.dev; break; } }
         kitReleases.push({
           version: r.version,
           at: r.at,
+          isDraft: !lock,
+          cutFromDeploymentId,
           components: r.comps ? Object.entries(r.comps).map(([name, version]) => ({ name, version })) : [],
           channels: Object.entries(r.channels).map(([name, cells]) => ({ name, cells })),
           bundle: bundles.get(r.version),
@@ -429,6 +435,28 @@ export async function pageRoutes(app: FastifyInstance): Promise<void> {
         return reply.send(result);
       } catch (err) {
         return reply.code(502).send({ error: err instanceof Error ? err.message : 'Release failed' });
+      }
+    },
+  );
+
+  // BFF proxy for Cut Release (two-object model) — freeze a dev kit into an
+  // immutable, GitHub-tagged release. HTMX posts the dev deployment to cut from;
+  // on success we redirect back to Kits & Releases (the draft is now a release).
+  app.post<{ Params: { id: string }; Body: { deployment_id?: string } }>(
+    '/cicd/projects/:id/cut-release',
+    { preHandler: requirePermission('deploys:create') },
+    async (request, reply) => {
+      const escHtml = (s: string): string => s.replace(/[<>&]/g, (c) => (c === '<' ? '&lt;' : c === '>' ? '&gt;' : '&amp;'));
+      const fail = (msg: string): unknown => reply.code(502).type('text/html').send(`<div class="small" style="color:var(--red);">Cut failed: ${escHtml(msg)}</div>`);
+      const deploymentId = request.body?.deployment_id;
+      if (!deploymentId) return reply.code(400).type('text/html').send('<div class="small" style="color:var(--red);">No dev deployment to cut from — deploy to dev first.</div>');
+      try {
+        const result = await platform.cutRelease(request.params.id, { deploymentId, by: request.user!.email });
+        if (result.publish_status === 'failed') return fail(result.publish_error || 'release publish error');
+        reply.header('HX-Redirect', `/cicd/projects/${request.params.id}?tab=builds`);
+        return reply.send('');
+      } catch (err) {
+        return fail(err instanceof Error ? err.message : 'error');
       }
     },
   );

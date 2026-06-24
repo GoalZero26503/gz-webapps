@@ -102,12 +102,16 @@ export interface VersionLock {
 export interface KitReleaseRow {
   version: string;
   at: string;
+  /** No version-lock yet → a Dev Kit (draft, dev-only). A lock → a cut Release. */
+  isDraft?: boolean;
+  /** The draft's dev deployment — what Cut Release freezes/tags. */
+  cutFromDeploymentId?: string;
   components: { name: string; version: string }[];
   /** Per channel, which envs this version reached → the deployment id (for linking). */
   channels: { name: string; cells: Partial<Record<Env, string>> }[];
   /** The CI kit-bundle (.zip) for this version, if one was built — download link. */
   bundle?: { hashId: string; artifactId: string; name: string };
-  /** GitHub Release published on first non-dev deploy (version-lock), if any. */
+  /** GitHub Release (version-lock) created when the kit was cut, if any. */
   release?: { url?: string; status: string; notesShort?: string };
 }
 

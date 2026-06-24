@@ -357,6 +357,20 @@ class PlatformClient {
   }
 
   /**
+   * Cut a release (two-object model): freeze a dev kit into an immutable,
+   * GitHub-tagged release. Pass the dev deployment to cut from; the platform
+   * creates the version-lock (tagging the kit repo's HEAD) + publishes notes.
+   * Idempotent — re-cutting a version returns its existing release.
+   */
+  async cutRelease(
+    projectId: string,
+    input: { deploymentId: string; by?: string },
+  ): Promise<{ version?: string; git_sha?: string; publish_status?: string; already_cut?: boolean; publish_error?: string; github?: { release_url?: string } | null }> {
+    if (this.isFake) return { version: '0.0.0', publish_status: 'published', github: null };
+    return this.postJson(`/projects/${encodeURIComponent(projectId)}/cut-release`, { deployment_id: input.deploymentId, by: input.by });
+  }
+
+  /**
    * Sync a release milestone to GitHub: upsert it across `memberRepos` and
    * create/maintain the `Release` issue in `releaseRepo`. The platform holds no
    * milestone state — the def + membership are resolved here and passed in.
