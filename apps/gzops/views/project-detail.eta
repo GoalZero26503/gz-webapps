@@ -85,42 +85,53 @@
   </div></div>
   <% } %>
 <% } else if (it.tab === 'builds' && it.project.type === 'firmware-kit') { %>
-  <div class="card"><div class="card-head"><span class="accent-bar"></span><h2>Releases</h2><span class="grow"></span><span class="small faint"><%= it.kitReleases.length %> release<%= it.kitReleases.length === 1 ? '' : 's' %> · newest first</span></div>
-    <div class="card-body">
-      <% if (!it.kitReleases.length) { %>
-        <div class="small faint">No releases yet — compose one with <span class="mono">Create release</span>.</div>
-      <% } %>
-      <% it.kitReleases.forEach(function (r) { %>
-        <details class="dc-card" style="margin-bottom:10px;">
-          <summary style="cursor:pointer;display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
-            <span class="badge info">v<%= r.version %></span>
-            <% r.channels.forEach(function (c) { %><span class="small"><b><%= c.name.replace(/ Release$/i,'') %></b>: <%= it.ENVS.filter(function(e){return c.cells[e];}).join(', ') || '—' %></span><% }) %>
-            <span class="grow"></span>
-            <% if (r.release && r.release.url) { %><a class="small" href="<%= r.release.url %>" target="_blank" rel="noopener" onclick="event.stopPropagation();" title="<%= r.release.notesShort || 'View GitHub Release' %>">GitHub Release ↗</a>
-            <% } else if (r.release && r.release.status === 'pending') { %><span class="small faint" title="Release publishes on first non-dev deploy">release pending</span><% } %>
-            <% if (r.bundle) { %><a class="small" href="/cicd/artifacts/<%= r.bundle.hashId %>/<%= r.bundle.artifactId %>/download" onclick="event.stopPropagation();" title="Download kit bundle (<%= r.bundle.name %>)">bundle ↓</a><% } %>
-            <span class="small faint"><%~ it.timeAgo(r.at) %></span>
-          </summary>
-          <div style="margin-top:10px;">
-            <div class="label-caps" style="margin-bottom:6px;">Component versions</div>
-            <% if (r.components.length) { %>
-              <div class="chips" style="margin-bottom:12px;"><% r.components.forEach(function (c) { %><span class="chip mono"><%= c.name %> <%= c.version %></span><% }) %></div>
-            <% } else { %><div class="small faint" style="margin-bottom:12px;">Not recorded (released before component versions were tracked).</div><% } %>
-            <div class="label-caps" style="margin-bottom:6px;">Published to</div>
-            <table class="tbl"><thead><tr><th>Channel</th><% it.ENVS.forEach(function (e) { %><th style="text-align:center;"><%= e %></th><% }) %></tr></thead><tbody>
-              <% r.channels.forEach(function (c) { %>
-                <tr><td><%= c.name %></td>
-                  <% it.ENVS.forEach(function (e) { %>
-                    <td style="text-align:center;"><% if (c.cells[e]) { %><a class="badge ok" href="/cicd/deployments/<%= c.cells[e] %>" title="View deployment">✓</a><% } else { %><span class="faint" style="opacity:.35;">·</span><% } %></td>
-                  <% }) %>
-                </tr>
-              <% }) %>
-            </tbody></table>
-          </div>
-        </details>
-      <% }) %>
-    </div>
-  </div>
+  <% var drafts = it.kitReleases.filter(function (r) { return r.isDraft; }); %>
+  <% var cuts = it.kitReleases.filter(function (r) { return !r.isDraft; }); %>
+
+  <%~ /* Drafts · Dev Kits — mutable, dev-only, not yet cut. */ '' %>
+  <div style="display:flex;align-items:baseline;gap:10px;margin:4px 2px 10px;"><span class="label-caps">Drafts · Dev Kits</span><span class="small faint">dev-only · not yet cut as a release</span></div>
+  <div class="card"><div class="card-body">
+    <% if (!drafts.length) { %><div class="small faint">No dev kits in progress — compose one with <span class="mono">Create release</span> targeting <span class="mono">dev</span>.</div><% } %>
+    <% drafts.forEach(function (r) { %>
+      <details class="dc-card" style="margin-bottom:10px;">
+        <summary style="cursor:pointer;display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+          <span class="badge warn">DRAFT</span><span class="mono small">v<%= r.version %></span>
+          <% r.channels.forEach(function (c) { %><span class="small"><b><%= c.name.replace(/ Release$/i,'') %></b>: <%= it.ENVS.filter(function(e){return c.cells[e];}).join(', ') || '—' %></span><% }) %>
+          <span class="grow"></span>
+          <% if (it.canDeploy && r.cutFromDeploymentId) { %>
+            <form hx-post="/cicd/projects/<%= it.project.id %>/cut-release" hx-confirm="Cut release v<%= r.version %>? Freezes this composition and creates a GitHub tag + notes on the kit repo. It can then deploy beyond dev." hx-target="#cut-msg-<%= r.version.replace(/[^a-zA-Z0-9]/g,'-') %>" hx-swap="innerHTML" style="display:inline;" onclick="event.stopPropagation();">
+              <input type="hidden" name="deployment_id" value="<%= r.cutFromDeploymentId %>" />
+              <button class="btn btn-primary" style="padding:4px 10px;font-size:12px;" type="submit">✂ Cut release</button>
+            </form>
+            <span id="cut-msg-<%= r.version.replace(/[^a-zA-Z0-9]/g,'-') %>"></span>
+          <% } %>
+          <span class="small faint"><%~ it.timeAgo(r.at) %></span>
+        </summary>
+        <%~ include('partials/kit-release-body', { r: r, ENVS: it.ENVS }) %>
+      </details>
+    <% }) %>
+  </div></div>
+
+  <%~ /* Releases — immutable, GitHub-tagged, deployable anywhere. */ '' %>
+  <div style="display:flex;align-items:baseline;gap:10px;margin:18px 2px 10px;"><span class="label-caps">Releases</span><span class="small faint">immutable · tagged · deployable anywhere</span></div>
+  <div class="card"><div class="card-body">
+    <% if (!cuts.length) { %><div class="small faint">No releases cut yet — cut one from a dev kit above to deploy beyond dev.</div><% } %>
+    <% cuts.forEach(function (r) { %>
+      <details class="dc-card" style="margin-bottom:10px;">
+        <summary style="cursor:pointer;display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+          <span class="badge info">v<%= r.version %></span>
+          <% r.channels.forEach(function (c) { %><span class="small"><b><%= c.name.replace(/ Release$/i,'') %></b>: <%= it.ENVS.filter(function(e){return c.cells[e];}).join(', ') || '—' %></span><% }) %>
+          <span class="grow"></span>
+          <% if (r.release && r.release.url) { %><a class="small" href="<%= r.release.url %>" target="_blank" rel="noopener" onclick="event.stopPropagation();" title="<%= r.release.notesShort || 'View GitHub Release' %>">GitHub Release ↗</a>
+          <% } else if (r.release && r.release.status === 'failed') { %><span class="small" style="color:var(--red);" title="Tag/notes publish failed — re-cut to retry">release publish failed</span>
+          <% } else if (r.release && r.release.status === 'pending') { %><span class="small faint">release publishing…</span><% } %>
+          <% if (r.bundle) { %><a class="small" href="/cicd/artifacts/<%= r.bundle.hashId %>/<%= r.bundle.artifactId %>/download" onclick="event.stopPropagation();" title="Download kit bundle (<%= r.bundle.name %>)">bundle ↓</a><% } %>
+          <span class="small faint"><%~ it.timeAgo(r.at) %></span>
+        </summary>
+        <%~ include('partials/kit-release-body', { r: r, ENVS: it.ENVS }) %>
+      </details>
+    <% }) %>
+  </div></div>
 <% } else if (it.tab === 'builds') { %>
   <div id="deploy-tile"></div>
   <div class="card"><div class="card-head"><span class="accent-bar"></span><h2>Artifacts</h2><span class="grow"></span><span class="small faint"><%= it.artifactTotal %> artifact<%= it.artifactTotal === 1 ? '' : 's' %> · newest first</span></div>
