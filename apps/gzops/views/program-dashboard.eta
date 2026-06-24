@@ -21,3 +21,5 @@
 <% it.program.sections.forEach(function (sec) { %>
   <%~ it.programSection(sec, it.projectsById, it.deployments) %>
 <% }) %>
+
+<%~ it.milestonesSection(it.program, { memberRepos: it.memberRepos, releaseRepo: it.releaseRepo, canEdit: it.canEdit }) %>

@@ -40,6 +40,38 @@ export interface ProgramSection {
   facets: string[];
 }
 
+/** Result of one repo's milestone upsert during a sync. */
+export interface MilestoneRepoRef {
+  repo: string;
+  number: number;
+  url: string;
+}
+
+/**
+ * A release milestone defined on a program (e.g. "R7"). Synced to GitHub via the
+ * platform: the milestone is upserted across all member repos and a `Release`-type
+ * issue is maintained in the kit repo. Sync results are stamped back here.
+ */
+export interface ProgramMilestone {
+  /** Stable slug derived from the title at creation (the def's id within a program). */
+  key: string;
+  title: string;
+  description: string;
+  /** ISO date (YYYY-MM-DD) or null. */
+  dueOn: string | null;
+  state: 'open' | 'closed';
+  /** The kit-repo Release issue, once synced. */
+  releaseIssue?: MilestoneRepoRef;
+  /** Per-member-repo milestones, from the last sync. */
+  repos?: MilestoneRepoRef[];
+  /** Set when the title changes after a sync, so the next sync renames in place. */
+  renamedFrom?: string;
+  /** Last-sync errors (repo → message), if any. */
+  syncErrors?: { repo: string; error: string }[];
+  syncedAt?: string;
+  syncedBy?: string;
+}
+
 /**
  * Program — a curated product-line view composed from platform projects.
  * NEW concept (not in the old webapp); owned by this app in its own DynamoDB
@@ -55,6 +87,8 @@ export interface Program {
   updatedBy: string;
   updatedAt: string;
   sections: ProgramSection[];
+  /** Release milestones synced to the program's member repos. */
+  milestones?: ProgramMilestone[];
 }
 
 /** Append-only access log entry (who approved/denied/changed what). */

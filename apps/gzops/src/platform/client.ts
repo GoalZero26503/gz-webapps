@@ -40,6 +40,7 @@ import {
   type KitDeployConfig,
   type KitPreview,
   type KitReleaseResult,
+  type MilestoneSyncResult,
   type Project,
   type Rail,
   type RailCell,
@@ -335,6 +336,42 @@ class PlatformClient {
       return { environment: input.environment, kit_version: input.kit_version, host_count: 0, copied_binaries: 0, deployments: input.channels.map((channel) => ({ channel, deployment_id: 'fake', manifests: 0 })) };
     }
     return this.postJson<KitReleaseResult>(`/projects/${encodeURIComponent(projectId)}/kit-release`, input);
+  }
+
+  /**
+   * Sync a release milestone to GitHub: upsert it across `memberRepos` and
+   * create/maintain the `Release` issue in `releaseRepo`. The platform holds no
+   * milestone state — the def + membership are resolved here and passed in.
+   */
+  async syncMilestones(input: {
+    title: string;
+    description: string;
+    dueOn: string | null;
+    state: 'open' | 'closed';
+    memberRepos: string[];
+    releaseRepo: string;
+    releaseIssueNumber?: number;
+    oldTitles?: string[];
+    syncedBy?: string;
+  }): Promise<MilestoneSyncResult> {
+    if (this.isFake) {
+      return {
+        title: input.title,
+        release_issue: { repo: input.releaseRepo, number: 1, url: `https://github.com/${input.releaseRepo}/issues/1` },
+        milestones: input.memberRepos.map((repo, i) => ({ repo, number: i + 1, url: `https://github.com/${repo}/milestone/${i + 1}`, action: 'created' as const })),
+        errors: [],
+      };
+    }
+    return this.postJson<MilestoneSyncResult>('/milestones/sync', {
+      title: input.title,
+      description: input.description,
+      due_on: input.dueOn,
+      state: input.state,
+      member_repos: input.memberRepos,
+      release: { repo: input.releaseRepo, issue_number: input.releaseIssueNumber },
+      old_titles: input.oldTitles,
+      synced_by: input.syncedBy,
+    });
   }
 
   /** Saved versions, newest first (the active one is [0]). */
