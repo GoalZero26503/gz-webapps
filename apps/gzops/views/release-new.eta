@@ -2,7 +2,7 @@
 <div class="page-head" style="margin-bottom:14px;">
   <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
     <a class="btn btn-ghost sm" href="/cicd/projects/<%= it.project.id %>"><i class="icon-arrow-left"></i></a>
-    <h1 style="font-size:19px;margin:0;">New release</h1>
+    <h1 style="font-size:19px;margin:0;">New dev kit</h1>
     <span class="badge"><%= it.project.name %></span>
     <span class="badge info">firmware-kit</span>
   </div>
