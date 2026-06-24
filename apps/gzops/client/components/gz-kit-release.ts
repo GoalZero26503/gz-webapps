@@ -25,6 +25,8 @@ export class GzKitRelease extends LitElement {
   @property({ attribute: 'preview-url' }) previewUrl = '';
   @property({ attribute: 'submit-url' }) submitUrl = '';
   @property({ attribute: 'cancel-url' }) cancelUrl = '';
+  /** Base for polling deployment status, e.g. "/cicd/deployments" → "{base}/{id}/status". */
+  @property({ attribute: 'status-url' }) statusUrlBase = '/cicd/deployments';
   @property({ attribute: 'suggested-version' }) suggested = '';
   @property({ attribute: 'envs' }) envsAttr = 'dev,test,alpha,beta,stage,prod';
   @property({ attribute: 'host-ids' }) hostIdsAttr = '[]';
@@ -41,8 +43,13 @@ export class GzKitRelease extends LitElement {
   @state() private error = '';
   @state() private previewOpen = false;
   @state() private submitting = false;
-  @state() private result: { environment: string; kit_version: string; host_count: number; copied_binaries: number; deployments: { channel: string; deployment_id: string }[] } | null = null;
+  /** Set once the release is accepted (202); drives the live progress panel. */
+  @state() private started: { environment: string; kit_version: string; host_count: number; deployments: { channel: string; deployment_id: string }[] } | null = null;
+  /** Latest polled status per deployment id. */
+  @state() private statuses: Record<string, { status: string; progress: number | null; note: string | null }> = {};
   @state() private submitError = '';
+
+  private static readonly TERMINAL = ['succeeded', 'failed', 'cancelled', 'denied'];
 
   protected createRenderRoot(): HTMLElement { return this; }
 
@@ -83,11 +90,16 @@ export class GzKitRelease extends LitElement {
   }
 
   private get canSubmit(): boolean {
-    return !this.submitting && !this.result
+    return !this.submitting && !this.started
       && !!this.kitVersion.trim()
       && this.selectedChannels.length > 0
       && !(this.preview?.missing?.length)
       && (this.allHosts || this.hosts.length > 0);
+  }
+
+  private get allTerminal(): boolean {
+    const ds = this.started?.deployments ?? [];
+    return ds.length > 0 && ds.every((d) => GzKitRelease.TERMINAL.includes(this.statuses[d.deployment_id]?.status ?? ''));
   }
 
   private async submit(): Promise<void> {
@@ -110,13 +122,35 @@ export class GzKitRelease extends LitElement {
           kit_version: this.kitVersion.trim(),
         }),
       });
-      const data = (await res.json().catch(() => ({}))) as { error?: string } & NonNullable<typeof this.result>;
+      const data = (await res.json().catch(() => ({}))) as {
+        error?: string; environment: string; kit_version: string; host_count: number;
+        deployments: { channel: string; deployment_id: string }[];
+      };
       if (!res.ok) throw new Error(data.error || `Release failed (${res.status})`);
-      this.result = data;
+      this.started = { environment: data.environment, kit_version: data.kit_version, host_count: data.host_count, deployments: data.deployments ?? [] };
+      // Seed each channel as queued, then poll to completion.
+      this.statuses = Object.fromEntries(this.started.deployments.map((d) => [d.deployment_id, { status: 'in_progress', progress: 0, note: 'Queued…' }]));
+      void this.pollStatuses();
     } catch (e) {
       this.submitError = e instanceof Error ? e.message : 'Release failed';
     } finally {
       this.submitting = false;
+    }
+  }
+
+  /** Poll each deployment's status until all reach a terminal state. */
+  private async pollStatuses(): Promise<void> {
+    const ids = (this.started?.deployments ?? []).map((d) => d.deployment_id);
+    for (let tick = 0; tick < 150 && !this.allTerminal; tick++) {
+      await new Promise((r) => setTimeout(r, 2500));
+      await Promise.all(ids.map(async (id) => {
+        try {
+          const res = await fetch(`${this.statusUrlBase}/${encodeURIComponent(id)}/status`);
+          if (!res.ok) return;
+          const s = (await res.json()) as { status: string; progress: number | null; note: string | null };
+          this.statuses = { ...this.statuses, [id]: { status: s.status, progress: s.progress, note: s.note } };
+        } catch { /* transient — keep polling */ }
+      }));
     }
   }
 
@@ -233,21 +267,47 @@ export class GzKitRelease extends LitElement {
     `, true);
   }
 
-  /** Success panel shown in place of the form footer once a release is published. */
-  private renderResult(): TemplateResult {
-    const r = this.result!;
-    return this.card('Release published', html`
-      <div class="small">Published <span class="mono">${r.kit_version}</span> to <span class="mono">${r.environment}</span> across ${r.deployments.length} channel${r.deployments.length === 1 ? '' : 's'} (${r.host_count} host manifest${r.host_count === 1 ? '' : 's'}${r.copied_binaries ? `, ${r.copied_binaries} binaries staged` : ''}).</div>
-      <table class="tbl" style="margin-top:8px;"><tbody>
-        ${r.deployments.map((d) => html`<tr><td class="mono">${d.channel}</td><td class="mono small faint">${d.deployment_id}</td></tr>`)}
-      </tbody></table>
-      <div style="margin-top:12px;"><a class="btn btn-primary" href=${this.cancelUrl}>Back to project</a></div>
+  /** Live progress panel: one row per channel, polled to completion. */
+  private renderProgress(): TemplateResult {
+    const r = this.started!;
+    const done = this.allTerminal;
+    const anyFailed = r.deployments.some((d) => ['failed', 'denied'].includes(this.statuses[d.deployment_id]?.status ?? ''));
+    const badge = (s: string): TemplateResult => {
+      const cls = s === 'succeeded' ? 'ok' : ['failed', 'denied'].includes(s) ? 'err' : s === 'cancelled' ? 'idle' : 'info';
+      const label = s === 'in_progress' ? 'In progress' : s.charAt(0).toUpperCase() + s.slice(1);
+      return html`<span class="badge ${cls}">${label}</span>`;
+    };
+    const title = done
+      ? (anyFailed ? 'Release finished with errors' : 'Release published')
+      : 'Release in progress…';
+    return this.card(title, html`
+      <div class="small">${done ? '' : html`<span class="badge info">started</span> `}<span class="mono">${r.kit_version}</span> → <span class="mono">${r.environment}</span> · ${r.host_count} host${r.host_count === 1 ? '' : 's'} · ${r.deployments.length} channel${r.deployments.length === 1 ? '' : 's'}</div>
+      <div style="display:flex;flex-direction:column;gap:10px;margin-top:12px;">
+        ${r.deployments.map((d) => {
+          const st = this.statuses[d.deployment_id] ?? { status: 'in_progress', progress: 0, note: 'Queued…' };
+          const pct = st.status === 'succeeded' ? 100 : Math.max(2, st.progress ?? 0);
+          const barColor = ['failed', 'denied'].includes(st.status) ? 'var(--red,#ff6b6b)' : st.status === 'succeeded' ? 'var(--gz-green,#bfd22b)' : 'var(--gz-green,#bfd22b)';
+          return html`<div>
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
+              <span class="mono" style="min-width:130px;">${d.channel}</span>${badge(st.status)}
+              <span class="grow"></span>
+              <a class="small faint mono" href="${this.statusUrlBase}/${encodeURIComponent(d.deployment_id)}" target="_blank" rel="noopener">details ↗</a>
+            </div>
+            <div style="height:8px;border-radius:4px;background:var(--bg-input,#1f2126);overflow:hidden;">
+              <div style="height:100%;width:${pct}%;background:${barColor};transition:width .4s ease;"></div>
+            </div>
+            <div class="small faint" style="margin-top:4px;">${st.note ?? ''}</div>
+          </div>`;
+        })}
+      </div>
+      ${done ? html`<div style="margin-top:14px;"><a class="btn btn-primary" href=${this.cancelUrl}>Back to project</a></div>`
+             : this.sub('You can leave this page — the release continues. Progress updates here every few seconds.')}
     `, true);
   }
 
   render(): TemplateResult {
-    if (this.result) {
-      return html`${this.renderSetup()}${this.renderHosts()}${this.renderComponents()}${this.renderResult()}`;
+    if (this.started) {
+      return html`${this.renderProgress()}`;
     }
     const chans = this.selectedChannels;
     return html`
