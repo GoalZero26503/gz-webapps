@@ -205,6 +205,15 @@ export interface KitPreview {
   host_count: number;
 }
 
+/** Milestone-sync result: the kit-repo Release issue + each member-repo milestone. */
+export interface MilestoneSyncResult {
+  title: string;
+  synced_by?: string | null;
+  release_issue: { repo: string; number: number; url: string } | null;
+  milestones: { repo: string; number: number; url: string; action: 'created' | 'updated' }[];
+  errors: { repo: string; error: string }[];
+}
+
 /** Kit-release publish result: one deployment record per published channel. */
 export interface KitReleaseResult {
   environment: string;

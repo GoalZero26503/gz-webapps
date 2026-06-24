@@ -8,6 +8,7 @@
  * All return ESCAPED, ready-to-emit HTML — callers use the raw `<%~ %>` slot.
  */
 import { ENVS, type Deployment, type Env, type Project, type Rail, type RailCell } from '../platform/types.js';
+import type { ProgramMilestone } from '../store/types.js';
 
 type ProjectsById = Record<string, Project>;
 type NavFor = (env: Env) => string | null;
@@ -178,6 +179,96 @@ export function programSection(
   </div>`;
 }
 
+/** The edit/create form for a single milestone (key empty = create). */
+function milestoneForm(programId: string, m: ProgramMilestone | null): string {
+  const a = `hx-post="/cicd/programs/${esc(programId)}/milestones/save" hx-target="#milestones-section" hx-swap="outerHTML"`;
+  return `<form class="ms-form" ${a}>
+    <input type="hidden" name="key" value="${esc(m?.key ?? '')}" />
+    <div class="ms-grid">
+      <label class="ms-field"><span class="label-caps">Title</span><input name="title" value="${esc(m?.title ?? '')}" placeholder="R7" required /></label>
+      <label class="ms-field"><span class="label-caps">Release date</span><input type="date" name="dueOn" value="${esc(m?.dueOn ?? '')}" /></label>
+      <label class="ms-field"><span class="label-caps">State</span><select name="state">
+        <option value="open"${m?.state !== 'closed' ? ' selected' : ''}>Open</option>
+        <option value="closed"${m?.state === 'closed' ? ' selected' : ''}>Closed</option>
+      </select></label>
+    </div>
+    <label class="ms-field"><span class="label-caps">Description</span><textarea name="description" rows="3" placeholder="What ships in this release…">${esc(m?.description ?? '')}</textarea></label>
+    <div class="ms-actions"><button type="submit" class="btn btn-primary">${m ? 'Save changes' : 'Add milestone'}</button></div>
+  </form>`;
+}
+
+/**
+ * "Releases & Milestones" section for a program dashboard. Lists the program's
+ * release milestones with their GitHub sync state and edit/sync/delete actions,
+ * plus a create form. Rendered both inline (full page) and as the HTMX swap
+ * target (`#milestones-section`) after a save/sync/delete.
+ */
+export function milestonesSection(
+  program: { id: string; milestones?: ProgramMilestone[] },
+  ctx: { memberRepos: string[]; releaseRepo: string | null; canEdit: boolean; flash?: string },
+): string {
+  const { memberRepos, releaseRepo, canEdit, flash } = ctx;
+  const milestones = program.milestones ?? [];
+
+  const reposPreview = memberRepos.length
+    ? `<details class="collapse ms-repos"><summary><span class="label-caps">Member repos</span><span class="small faint">${memberRepos.length} repo${memberRepos.length === 1 ? '' : 's'} · milestone fans out to all${releaseRepo ? ` · Release issue in <span class="mono">${esc(releaseRepo)}</span>` : ''}</span></summary>
+        <div class="ms-repolist">${memberRepos.map((r) => `<span class="chip${r === releaseRepo ? ' chip-sel' : ''}" title="${r === releaseRepo ? 'Release issue host' : 'milestone synced here'}">${esc(r)}</span>`).join('')}</div>
+      </details>`
+    : `<div class="small faint">This program has no member repos to sync — add sections with a firmware-kit/cloud/mobile project first.</div>`;
+
+  const rows = milestones.length
+    ? milestones.map((m) => {
+        const synced = m.syncedAt
+          ? `${m.releaseIssue ? `<a href="${esc(m.releaseIssue.url)}" target="_blank" rel="noopener">Release issue #${esc(m.releaseIssue.number)}</a> · ` : ''}<span class="small faint">${(m.repos ?? []).length} repo${(m.repos ?? []).length === 1 ? '' : 's'} · synced ${timeAgo(m.syncedAt)}${m.syncedBy ? ` by ${esc(m.syncedBy)}` : ''}</span>`
+          : `<span class="small faint">not synced yet</span>`;
+        const errs = (m.syncErrors ?? []).length
+          ? `<details class="collapse"><summary><span class="badge err">${m.syncErrors!.length} sync error${m.syncErrors!.length === 1 ? '' : 's'}</span></summary><div class="small mono" style="margin-top:6px;">${m.syncErrors!.map((e) => `${esc(e.repo)}: ${esc(e.error)}`).join('<br/>')}</div></details>`
+          : '';
+        const perRepo = (m.repos ?? []).length
+          ? `<details class="collapse"><summary><span class="label-caps">Milestones</span></summary><div class="ms-repolist" style="margin-top:6px;">${m.repos!.map((r) => `<a class="chip" href="${esc(r.url)}" target="_blank" rel="noopener">${esc(r.repo)} #${esc(r.number)}</a>`).join('')}</div></details>`
+          : '';
+        const actions = canEdit
+          ? `<div class="ms-row-actions">
+              <form hx-post="/cicd/programs/${esc(program.id)}/milestones/${esc(m.key)}/sync" hx-target="#milestones-section" hx-swap="outerHTML" hx-confirm="Sync '${esc(m.title)}' to ${memberRepos.length} member repo${memberRepos.length === 1 ? '' : 's'}${releaseRepo ? ` and the Release issue in ${esc(releaseRepo)}` : ''}? This creates/updates real GitHub milestones and an issue." hx-indicator="#ms-busy-${esc(m.key)}">
+                <button type="submit" class="btn btn-primary"${memberRepos.length ? '' : ' disabled'}>${m.syncedAt ? 'Re-sync' : 'Sync to GitHub'} →</button>
+              </form>
+              <span id="ms-busy-${esc(m.key)}" class="htmx-indicator small faint">syncing…</span>
+              <form hx-post="/cicd/programs/${esc(program.id)}/milestones/${esc(m.key)}/delete" hx-target="#milestones-section" hx-swap="outerHTML" hx-confirm="Remove the '${esc(m.title)}' milestone definition? (GitHub milestones already created are NOT deleted.)">
+                <button type="submit" class="btn btn-ghost">Delete</button>
+              </form>
+            </div>`
+          : '';
+        const editForm = canEdit
+          ? `<details class="collapse" style="margin-top:8px;"><summary><span class="small">Edit details</span></summary><div style="margin-top:8px;">${milestoneForm(program.id, m)}</div></details>`
+          : '';
+        return `<div class="ms-item">
+          <div class="ms-item-head">
+            <span class="ms-title">${esc(m.title)}</span>${statusBadge(m.state === 'closed' ? 'cancelled' : 'open')}
+            ${m.dueOn ? `<span class="small faint">📅 ${esc(m.dueOn)}</span>` : ''}
+            <span class="grow"></span>${synced}
+          </div>
+          ${m.description ? `<div class="small" style="margin:6px 0;white-space:pre-wrap;">${esc(m.description)}</div>` : ''}
+          <div class="ms-meta">${perRepo}${errs}</div>
+          ${actions}${editForm}
+        </div>`;
+      }).join('')
+    : `<div class="small faint">No release milestones yet.${canEdit ? ' Add one below to fan a milestone out across the member repos.' : ''}</div>`;
+
+  const createForm = canEdit
+    ? `<details class="collapse ms-new"><summary><span class="btn btn-ghost">＋ New milestone</span></summary><div style="margin-top:10px;">${milestoneForm(program.id, null)}</div></details>`
+    : '';
+
+  return `<section id="milestones-section" class="card">
+    <div class="card-head"><span class="accent-bar"></span><h2>Releases &amp; Milestones</h2><span class="grow"></span></div>
+    <div class="card-body">
+      ${flash ? `<div class="ms-flash">${esc(flash)}</div>` : ''}
+      ${reposPreview}
+      <div class="ms-list">${rows}</div>
+      ${createForm}
+    </div>
+  </section>`;
+}
+
 export const viewHelpers = {
   ENVS,
   esc,
@@ -191,4 +282,5 @@ export const viewHelpers = {
   componentMatrix,
   programHealth,
   programSection,
+  milestonesSection,
 };

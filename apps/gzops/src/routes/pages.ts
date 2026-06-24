@@ -6,6 +6,7 @@ import { programs as programsTable } from '../store/repo.js';
 import type { Program } from '../store/types.js';
 import { chrome } from '../views/chrome.js';
 import { programHealth } from '../views/helpers.js';
+import { resolveReleaseRepos } from './programs.js';
 
 const PAGE_SIZE = 6;
 /** BUILDS-tab artifact rows per page (HTMX load-more appends the next batch). */
@@ -160,13 +161,17 @@ export async function pageRoutes(app: FastifyInstance): Promise<void> {
     // Enrich kit projects so the program's Components matrix renders (it pulls
     // node versions from projectsById, same as the project detail page).
     const componentProjects = await enrichKitComponents(projects.filter((p) => p.type === 'firmware-kit'));
-    const projById = byId([...projects, ...componentProjects]);
+    const allProjects = [...projects, ...componentProjects];
+    const projById = byId(allProjects);
+    const { memberRepos, releaseRepo } = await resolveReleaseRepos(program, allProjects);
     return reply.view('program-dashboard.eta', {
       ...(await chrome(request, 'dashboard', program.id)),
       title: program.name,
       program,
       projectsById: projById,
       deployments,
+      memberRepos,
+      releaseRepo,
       health: programHealth(program.sections, projById),
       inflight: deployments.filter((d) => d.status === 'in_progress').length,
       failures: deployments.filter((d) => d.status === 'failed').length,

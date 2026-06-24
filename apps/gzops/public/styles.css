@@ -671,3 +671,34 @@ details.collapse[open] summary::before { transform: rotate(90deg); }
   .bell-menu { width: min(340px, calc(100vw - 16px)); right: 6px; }
   .page-head { flex-wrap: wrap; }
 }
+
+/* ── Release milestones (program dashboard) ─────────────────────────── */
+.htmx-indicator { display: none; }
+.htmx-request .htmx-indicator, .htmx-request.htmx-indicator { display: inline; }
+
+.ms-flash { padding: 8px 12px; margin-bottom: 12px; border-radius: 8px; background: var(--gz-green-dim); border: 1px solid var(--border-focus); font-size: 13px; }
+.ms-repos { margin-bottom: 12px; }
+.ms-repolist { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.ms-list { display: flex; flex-direction: column; gap: 10px; }
+.ms-item { padding: 12px 14px; border: 1px solid var(--border); border-radius: 10px; background: var(--bg-primary); }
+.ms-item-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.ms-title { font-weight: 650; font-size: 15px; }
+.ms-meta { display: flex; flex-direction: column; gap: 4px; }
+.ms-meta:empty { display: none; }
+.ms-row-actions { display: flex; align-items: center; gap: 10px; margin-top: 10px; flex-wrap: wrap; }
+.ms-row-actions form { margin: 0; }
+
+.ms-form { display: flex; flex-direction: column; gap: 10px; }
+.ms-grid { display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 10px; }
+.ms-field { display: flex; flex-direction: column; gap: 4px; }
+.ms-field input, .ms-field textarea, .ms-field select {
+  background: var(--bg-input); border: 1px solid var(--border); border-radius: 8px;
+  padding: 8px 10px; color: var(--text-primary); font: inherit; width: 100%;
+}
+.ms-field input:focus, .ms-field textarea:focus, .ms-field select:focus { outline: none; border-color: var(--border-focus); background: var(--bg-input-focus); }
+.ms-field textarea { resize: vertical; }
+.ms-actions { display: flex; gap: 8px; }
+.ms-new { margin-top: 14px; }
+.ms-new > summary { list-style: none; }
+
+@media (max-width: 720px) { .ms-grid { grid-template-columns: 1fr; } }

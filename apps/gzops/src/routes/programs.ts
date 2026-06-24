@@ -3,8 +3,9 @@ import { requirePermission } from '../auth/plugin.js';
 import { platform } from '../platform/client.js';
 import type { Project, ProjectType } from '../platform/types.js';
 import { newId, programs as programsTable } from '../store/repo.js';
-import type { Program, ProgramSection } from '../store/types.js';
+import type { Program, ProgramMilestone, ProgramSection } from '../store/types.js';
 import { chrome } from '../views/chrome.js';
+import { milestonesSection } from '../views/helpers.js';
 
 /** Facet options offered per project type in the program editor. */
 export const FACETS: Record<ProjectType, { id: string; label: string }[]> = {
@@ -32,6 +33,64 @@ export const FACETS: Record<ProjectType, { id: string; label: string }[]> = {
 
 const slugify = (s: string): string =>
   s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'program';
+
+const GH_ORG = 'GoalZero26503';
+
+/** "github.com/Owner/Name" | "Owner/Name" | "Name" → "Owner/Name" (org-defaulted). */
+function normalizeRepo(raw: string): string | null {
+  const c = raw.replace(/^https?:\/\//, '').replace(/^github\.com\//, '').replace(/\.git$/, '').trim();
+  const parts = c.split('/').filter(Boolean);
+  if (!parts.length) return null;
+  if (parts.length === 1) return `${GH_ORG}/${parts[0]}`;
+  return parts.slice(-2).join('/');
+}
+
+/**
+ * Resolve a program's release-sync surface from its sections: every section's
+ * repo, with firmware-kit sections expanded to their component node repos (from
+ * the kit's deploy-config). The Release issue is hosted in the first firmware-kit
+ * repo (else the first member repo).
+ */
+export async function resolveReleaseRepos(
+  program: Program,
+  projects: Project[],
+): Promise<{ memberRepos: string[]; releaseRepo: string | null }> {
+  const byId = new Map(projects.map((p) => [p.id, p]));
+  const repos = new Set<string>();
+  let releaseRepo: string | null = null;
+  for (const sec of program.sections) {
+    const proj = byId.get(sec.projectId);
+    if (!proj?.repo) continue;
+    const norm = normalizeRepo(proj.repo);
+    if (norm) repos.add(norm);
+    if (proj.type === 'firmware-kit') {
+      if (!releaseRepo && norm) releaseRepo = norm;
+      const dc = await platform.getDeployConfig(proj.id).catch(() => null);
+      for (const c of dc?.kit?.components ?? []) {
+        const nodeRepo = byId.get(c.project)?.repo;
+        const n = nodeRepo ? normalizeRepo(nodeRepo) : null;
+        if (n) repos.add(n);
+      }
+    }
+  }
+  if (!releaseRepo && repos.size) releaseRepo = [...repos][0];
+  return { memberRepos: [...repos], releaseRepo };
+}
+
+/** Render the milestones section (the HTMX swap target) for a program. */
+async function renderMilestones(reply: FastifyReply, program: Program, flash?: string): Promise<FastifyReply> {
+  const projects = await platform.listProjects();
+  const { memberRepos, releaseRepo } = await resolveReleaseRepos(program, projects);
+  return reply.type('text/html').send(milestonesSection(program, { memberRepos, releaseRepo, canEdit: true, flash }));
+}
+
+/** First unused key from a base slug (key, key-2, key-3, …). */
+function uniqueKey(base: string, existing: ProgramMilestone[]): string {
+  const used = new Set(existing.map((m) => m.key));
+  if (!used.has(base)) return base;
+  for (let i = 2; i < 1000; i++) if (!used.has(`${base}-${i}`)) return `${base}-${i}`;
+  return `${base}-${Date.now()}`;
+}
 
 interface EditorForm {
   name: string;
@@ -171,6 +230,93 @@ export async function programRoutes(app: FastifyInstance): Promise<void> {
     reply.header('HX-Redirect', '/cicd/programs');
     return reply.code(204).send();
   });
+
+  // ── Release milestones ────────────────────────────────────────────────────
+  // Create/update a milestone definition (no GitHub side effect — Sync does that).
+  app.post<{ Params: { id: string }; Body: Record<string, unknown> }>(
+    '/cicd/programs/:id/milestones/save',
+    { preHandler: requirePermission('programs:write') },
+    async (request, reply) => {
+      const program = await loadProgramOr404(request, reply);
+      if (!program) return reply;
+      const b = request.body;
+      const title = String(b.title ?? '').trim();
+      if (!title) return renderMilestones(reply, program, 'Title is required.');
+      const list = program.milestones ?? [];
+      const key = String(b.key ?? '').trim();
+      const dueOn = String(b.dueOn ?? '').trim() || null;
+      const state: 'open' | 'closed' = b.state === 'closed' ? 'closed' : 'open';
+      const description = String(b.description ?? '').trim();
+
+      const existing = key ? list.find((m) => m.key === key) : undefined;
+      if (existing) {
+        // Title change after a sync → remember the old title so the next sync renames in place.
+        if (existing.title !== title && existing.syncedAt && !existing.renamedFrom) existing.renamedFrom = existing.title;
+        Object.assign(existing, { title, description, dueOn, state });
+      } else {
+        list.push({ key: uniqueKey(slugify(title), list), title, description, dueOn, state });
+      }
+      const updated: Program = { ...program, milestones: list, updatedBy: request.user!.email, updatedAt: new Date().toISOString() };
+      await programsTable().put(updated);
+      return renderMilestones(reply, updated, existing ? `Updated “${title}”.` : `Added “${title}”. Click Sync to push it to GitHub.`);
+    },
+  );
+
+  // Sync a milestone to GitHub: upsert across member repos + maintain the Release issue.
+  app.post<{ Params: { id: string; key: string } }>(
+    '/cicd/programs/:id/milestones/:key/sync',
+    { preHandler: requirePermission('programs:write') },
+    async (request, reply) => {
+      const program = await loadProgramOr404(request, reply);
+      if (!program) return reply;
+      const m = (program.milestones ?? []).find((x) => x.key === request.params.key);
+      if (!m) return renderMilestones(reply, program, 'Milestone not found.');
+      const projects = await platform.listProjects();
+      const { memberRepos, releaseRepo } = await resolveReleaseRepos(program, projects);
+      if (!memberRepos.length || !releaseRepo) return renderMilestones(reply, program, 'No member repos resolved — add sections to the program first.');
+      try {
+        const res = await platform.syncMilestones({
+          title: m.title,
+          description: m.description,
+          dueOn: m.dueOn,
+          state: m.state,
+          memberRepos,
+          releaseRepo,
+          releaseIssueNumber: m.releaseIssue?.number,
+          oldTitles: m.renamedFrom ? [m.renamedFrom] : undefined,
+          syncedBy: request.user!.email,
+        });
+        m.releaseIssue = res.release_issue ?? undefined;
+        m.repos = res.milestones.map((x) => ({ repo: x.repo, number: x.number, url: x.url }));
+        m.syncErrors = res.errors;
+        m.syncedAt = new Date().toISOString();
+        m.syncedBy = request.user!.email;
+        m.renamedFrom = undefined;
+        const updated: Program = { ...program, updatedBy: request.user!.email, updatedAt: new Date().toISOString() };
+        await programsTable().put(updated);
+        const flash = res.errors.length
+          ? `Synced “${m.title}” with ${res.errors.length} error${res.errors.length === 1 ? '' : 's'} — see below.`
+          : `Synced “${m.title}” → ${res.milestones.length} milestone${res.milestones.length === 1 ? '' : 's'}${res.release_issue ? ` + Release issue #${res.release_issue.number}` : ''}.`;
+        return renderMilestones(reply, updated, flash);
+      } catch (e) {
+        return renderMilestones(reply, program, `Sync failed: ${(e as Error).message}`);
+      }
+    },
+  );
+
+  // Remove a milestone definition (does NOT delete GitHub milestones).
+  app.post<{ Params: { id: string; key: string } }>(
+    '/cicd/programs/:id/milestones/:key/delete',
+    { preHandler: requirePermission('programs:write') },
+    async (request, reply) => {
+      const program = await loadProgramOr404(request, reply);
+      if (!program) return reply;
+      const list = (program.milestones ?? []).filter((m) => m.key !== request.params.key);
+      const updated: Program = { ...program, milestones: list, updatedBy: request.user!.email, updatedAt: new Date().toISOString() };
+      await programsTable().put(updated);
+      return renderMilestones(reply, updated, 'Milestone definition removed (GitHub milestones were not deleted).');
+    },
+  );
 }
 
 /** Mutate the in-flight editor form per the clicked control. */
