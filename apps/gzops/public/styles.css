@@ -519,6 +519,17 @@ table.tbl { width: 100%; border-collapse: collapse; }
 .rail-envs { display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; margin-bottom: 6px; }
 .rail-envs.offset { grid-template-columns: 110px repeat(6, 1fr); }
 
+/* Firmware-kit Status matrix: dev is the pre-release (draft) zone; a "release
+   line" separates it from the promoted envs. Opt-in via the `kit` flag so other
+   rails are untouched. */
+.rail.kit .cell.draft-col { position: relative; border-style: dashed; border-color: rgba(191, 210, 43, 0.3); background: rgba(191, 210, 43, 0.04); }
+.rail-envs.kit .draft-col { position: relative; color: var(--gz-green); }
+.rail.kit .cell.draft-col::after,
+.rail-envs.kit .draft-col::after { content: ''; position: absolute; top: 2px; bottom: 2px; right: -4px; width: 2px; background: linear-gradient(var(--gz-green), rgba(191, 210, 43, 0)); opacity: 0.5; }
+.warn-flag { color: var(--yellow); font-size: 11px; }
+.rail-legend { display: flex; flex-wrap: wrap; gap: 16px; align-items: center; margin-top: 12px; font-size: 11px; color: var(--text-tertiary); }
+.rail-legend .rl-line { color: var(--gz-green); }
+
 /* ── Filters / pills ────────────────────────────────────── */
 .filters { display: flex; align-items: center; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; }
 .pill { padding: 4px 12px; border-radius: 999px; border: 1px solid var(--border); background: var(--bg-card); font-size: 12px; font-weight: 600; color: var(--text-secondary); cursor: pointer; }

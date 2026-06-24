@@ -47,8 +47,9 @@ export function statusBadge(status: string): string {
 }
 
 /** One promotion-rail cell. `nav` (a hash/href) makes the cell a deep link. */
-export function cell(c: RailCell | null | undefined, nav?: string | null): string {
-  if (!c) return `<div class="cell empty"><div class="v">—</div></div>`;
+export function cell(c: RailCell | null | undefined, nav?: string | null, draftCol = false): string {
+  const dc = draftCol ? ' draft-col' : '';
+  if (!c) return `<div class="cell empty${dc}"><div class="v">—</div></div>`;
   const cls = c.state || 'live';
   let meta: string;
   if (c.state === 'deploying') meta = `<span class="dot info"></span>${c.note ? `${esc(c.note)} · ` : ''}${c.progress != null ? `${c.progress}%` : 'deploying…'}`;
@@ -56,11 +57,11 @@ export function cell(c: RailCell | null | undefined, nav?: string | null): strin
   else meta = `${c.age ? esc(c.age) : ''}${c.age ? ' · ' : ''}<span class="dot ok"></span>`;
   const v = esc(c.v) + (c.b ? ` <span class="faint">(${c.b})</span>` : '');
   const navAttrs = nav ? ` data-nav="${esc(nav)}" onclick="location.href='${esc(nav)}'" style="cursor:pointer;" title="View deployment"` : '';
-  return `<div class="cell ${cls}${nav ? ' cell-link' : ''}"${navAttrs}><div class="v">${v}</div><div class="meta">${meta}</div></div>`;
+  return `<div class="cell ${cls}${nav ? ' cell-link' : ''}${dc}"${navAttrs}><div class="v">${v}</div><div class="meta">${meta}</div></div>`;
 }
 
-export function envHeader(offset = false): string {
-  return `<div class="rail-envs ${offset ? 'offset' : ''}">${offset ? '<span></span>' : ''}${ENVS.map((e) => `<span class="label-caps">${e}</span>`).join('')}</div>`;
+export function envHeader(offset = false, kit = false): string {
+  return `<div class="rail-envs ${offset ? 'offset' : ''}${kit ? ' kit' : ''}">${offset ? '<span></span>' : ''}${ENVS.map((e, i) => `<span class="label-caps${kit && i === 0 ? ' draft-col' : ''}">${e}</span>`).join('')}</div>`;
 }
 
 export function rail(railData: Rail, withHeader = false, navFor?: NavFor): string {
@@ -72,26 +73,30 @@ export function railSkeleton(): string {
   return `<div class="rail-scroll">${envHeader(false)}<div class="rail">${ENVS.map(() => `<div class="cell"><div class="v faint">…</div></div>`).join('')}</div></div>`;
 }
 
-export function channelRail(channels: Record<string, Rail>, navFor?: ChannelNavFor): string {
+export function channelRail(channels: Record<string, Rail>, navFor?: ChannelNavFor, kit = false): string {
   const rows = Object.entries(channels)
-    .map(([name, envs]) => `<span class="env-label">${esc(name)}</span>${ENVS.map((e) => cell(envs[e], navFor ? navFor(name, e) : null)).join('')}`)
+    .map(([name, envs]) => {
+      // Warehouse = factory auto-update → flag it so the implication is visible.
+      const warn = kit && /warehouse/i.test(name) ? ' <span class="warn-flag" title="factory auto-update">⚠</span>' : '';
+      return `<span class="env-label">${esc(name)}${warn}</span>${ENVS.map((e, i) => cell(envs[e], navFor ? navFor(name, e) : null, kit && i === 0)).join('')}`;
+    })
     .join('');
-  return `<div class="rail-scroll">${envHeader(true)}<div class="rail labeled">${rows}</div></div>`;
+  return `<div class="rail-scroll">${envHeader(true, kit)}<div class="rail labeled${kit ? ' kit' : ''}">${rows}</div></div>`;
 }
 
-export function componentMatrix(components: Project['components'], projectsById: ProjectsById, withHeader = true): string {
+export function componentMatrix(components: Project['components'], projectsById: ProjectsById, withHeader = true, kit = false): string {
   const rows = (components ?? [])
     .map((c) => {
       const p = projectsById[c.projectId];
       const label = p ? `<a href="/cicd/projects/${esc(p.id)}">${esc(c.label)}</a>` : esc(c.label);
-      return `<span class="env-label">${label}</span>${ENVS.map((e) => {
+      return `<span class="env-label">${label}</span>${ENVS.map((e, i) => {
         const cl = p?.rail ? p.rail[e] : null;
         const cls = cl ? cl.state || 'live' : 'empty';
-        return `<div class="cell ${cls}"><div class="v">${cl ? esc(cl.v) : '—'}</div></div>`;
+        return `<div class="cell ${cls}${kit && i === 0 ? ' draft-col' : ''}"><div class="v">${cl ? esc(cl.v) : '—'}</div></div>`;
       }).join('')}`;
     })
     .join('');
-  return `<div class="rail-scroll">${withHeader ? envHeader(true) : ''}<div class="rail labeled compact">${rows}</div></div>`;
+  return `<div class="rail-scroll">${withHeader ? envHeader(true, kit) : ''}<div class="rail labeled compact${kit ? ' kit' : ''}">${rows}</div></div>`;
 }
 
 export interface ProgramSectionInput {
