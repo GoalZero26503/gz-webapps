@@ -28,11 +28,11 @@ export class GzKitRelease extends LitElement {
   /** Base for polling deployment status, e.g. "/cicd/deployments" → "{base}/{id}/status". */
   @property({ attribute: 'status-url' }) statusUrlBase = '/cicd/deployments';
   @property({ attribute: 'suggested-version' }) suggested = '';
-  @property({ attribute: 'envs' }) envsAttr = 'dev,test,alpha,beta,stage,prod';
   @property({ attribute: 'host-ids' }) hostIdsAttr = '[]';
   @property({ attribute: 'components' }) componentsAttr = '[]';
 
-  @state() private env = 'dev';
+  /** A dev kit always targets dev; cutting a release is what unlocks other envs. */
+  private readonly env = 'dev';
   @state() private channels = { app: true, warehouse: false, manual: false };
   @state() private allHosts = true;
   @state() private hosts: string[] = [];
@@ -53,7 +53,6 @@ export class GzKitRelease extends LitElement {
 
   protected createRenderRoot(): HTMLElement { return this; }
 
-  private get allEnvs(): string[] { return this.envsAttr.split(',').map((s) => s.trim()).filter(Boolean); }
   private get hostIds(): string[] { try { return JSON.parse(this.hostIdsAttr); } catch { return []; } }
   private get components(): Comp[] { try { return JSON.parse(this.componentsAttr); } catch { return []; } }
 
@@ -105,8 +104,8 @@ export class GzKitRelease extends LitElement {
   private async submit(): Promise<void> {
     const chans = this.selectedChannels;
     const warns = chans.includes('warehouse');
-    const msg = `Release ${this.kitVersion} to ${chans.join(', ')} in ‘${this.env}’?`
-      + (warns ? `\n\n⚠ The ‘warehouse’ channel triggers automatic updates to devices in factory mode in ‘${this.env}’.` : '');
+    const msg = `Deploy dev kit ${this.kitVersion} to ${chans.join(', ')} in ‘dev’?`
+      + (warns ? `\n\n⚠ The ‘warehouse’ channel triggers automatic updates to devices in factory mode in ‘dev’.` : '');
     if (!window.confirm(msg)) return;
     this.submitting = true;
     this.submitError = '';
@@ -176,21 +175,15 @@ export class GzKitRelease extends LitElement {
 
   private renderSetup(): TemplateResult {
     const chans: ('app' | 'warehouse' | 'manual')[] = ['app', 'warehouse', 'manual'];
-    return this.card('Release', html`
-      <div class="dc-row" style="align-items:flex-start;">
-        <div style="flex:1;">
-          <label class="label-caps">Environment</label>
-          ${this.sub('The environment to release to.')}
-          <select class="dc-in" @change=${(e: Event) => { this.env = (e.target as HTMLSelectElement).value; }}>
-            ${this.allEnvs.map((x) => html`<option value=${x} ?selected=${x === this.env}>${x}</option>`)}
-          </select>
-        </div>
-        <div style="flex:1;">
-          <label class="label-caps">Kit version</label>
-          ${this.sub('Version of the release.')}
-          <input class="dc-in mono" .value=${this.kitVersion} @input=${(e: Event) => { this.kitVersion = (e.target as HTMLInputElement).value; }} />
-          ${this.suggested ? html`<span class="small faint">suggested ${this.suggested}</span>` : nothing}
-        </div>
+    return this.card('Dev kit', html`
+      <div class="dc-sub" style="margin-bottom:12px;">
+        ${this.sub('A dev kit always deploys to ‘dev’. Cut a release from it (in Kits & Releases) to deploy beyond dev.')}
+      </div>
+      <div class="dc-sub">
+        <label class="label-caps">Kit version</label>
+        ${this.sub('Version of the dev kit.')}
+        <input class="dc-in mono" .value=${this.kitVersion} @input=${(e: Event) => { this.kitVersion = (e.target as HTMLInputElement).value; }} />
+        ${this.suggested ? html`<span class="small faint">suggested ${this.suggested}</span>` : nothing}
       </div>
       <div class="dc-sub" style="margin-top:12px;">
         <label class="label-caps">Channels</label>
@@ -316,11 +309,11 @@ export class GzKitRelease extends LitElement {
       ${this.renderComponents()}
       ${this.renderPreview()}
       <div class="dc-savebar">
-        ${this.submitError ? html`<span class="small" style="color:var(--red,#ff6b6b);">${this.submitError}</span>` : html`<span class="small faint">${chans.length ? `Will publish to ${chans.join(', ')} in ‘${this.env}’.` : 'Select at least one channel.'}</span>`}
+        ${this.submitError ? html`<span class="small" style="color:var(--red,#ff6b6b);">${this.submitError}</span>` : html`<span class="small faint">${chans.length ? `Will deploy the dev kit to ${chans.join(', ')} in ‘dev’.` : 'Select at least one channel.'}</span>`}
         <span class="grow"></span>
         <a class="btn btn-ghost" href=${this.cancelUrl}>Back</a>
         <button type="button" class="btn btn-primary" ?disabled=${!this.canSubmit} @click=${() => void this.submit()}>
-          ${this.submitting ? 'Publishing…' : 'Create release'}
+          ${this.submitting ? 'Deploying…' : 'Deploy dev kit'}
         </button>
       </div>`;
   }

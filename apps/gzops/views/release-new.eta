@@ -9,7 +9,6 @@
 </div>
 <gz-kit-release
   project-id="<%= it.project.id %>"
-  envs="<%= it.ENVS.join(',') %>"
   suggested-version="<%= it.suggested %>"
   host-ids="<%= it.hostIdsJson %>"
   components="<%= it.componentsJson %>"
