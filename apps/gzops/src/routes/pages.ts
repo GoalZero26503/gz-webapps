@@ -245,7 +245,16 @@ export async function pageRoutes(app: FastifyInstance): Promise<void> {
     if (project.type === 'firmware-kit' && tab === 'builds') {
       // A CI kit-bundle (.zip) may exist per version — offer it as a download.
       // Version locks carry the GitHub Release published on first non-dev deploy.
-      const [artifacts, locks] = await Promise.all([platform.listArtifacts(project), platform.listVersionLocks(project.id)]);
+      const [artifacts, locks, kitDc] = await Promise.all([
+        platform.listArtifacts(project),
+        platform.listVersionLocks(project.id),
+        platform.getDeployConfig(project.id).catch(() => null),
+      ]);
+      // Every configured firmware-kit channel — shown as a matrix row even where the
+      // kit was never deployed, so any channel is selectable to deploy to.
+      const allChannelKeys = (kitDc?.deploy_pipelines ?? [])
+        .filter((p) => p.plugin === 'firmware-kit-deploy')
+        .map((p) => p.name);
       const bundles = new Map<string, { hashId: string; artifactId: string; name: string }>();
       for (const a of artifacts) {
         if (a.kind?.toLowerCase() === 'zip' && a.version && a.hashId && a.artifactId && !bundles.has(a.version)) {
@@ -268,17 +277,21 @@ export async function pageRoutes(app: FastifyInstance): Promise<void> {
       for (const v of order) {
         const r = map[v];
         const lock = releaseByVersion.get(r.version);
-        // A version with a lock is a CUT release; one deployed only to dev (no lock)
-        // is a Dev Kit (draft). The draft's dev deployment is what Cut Release freezes.
+        // A version is a cut Release only once its lock is PUBLISHED. No lock, or a
+        // failed/pending publish, stays a Dev Kit (draft) — failed cuts get retried
+        // from the Drafts list rather than masquerading as a Release.
+        const cut = lock?.publish_status === 'published';
         let cutFromDeploymentId: string | undefined;
         for (const cells of Object.values(r.channels)) { if (cells.dev) { cutFromDeploymentId = cells.dev; break; } }
+        // Union of configured channels + any with deployments → every channel is a row.
+        const channelKeys = [...new Set([...allChannelKeys, ...Object.keys(r.channels)])];
         kitReleases.push({
           version: r.version,
           at: r.at,
-          isDraft: !lock,
+          isDraft: !cut,
           cutFromDeploymentId,
           components: r.comps ? Object.entries(r.comps).map(([name, version]) => ({ name, version })) : [],
-          channels: Object.entries(r.channels).map(([key, cells]) => ({ name: channelLabel(key), key, cells })),
+          channels: channelKeys.map((key) => ({ name: channelLabel(key), key, cells: r.channels[key] ?? {} })),
           bundle: bundles.get(r.version),
           release: lock ? { url: lock.github?.release_url, status: lock.publish_status, notesShort: lock.release_notes?.short } : undefined,
           componentReleases: lock?.component_releases,

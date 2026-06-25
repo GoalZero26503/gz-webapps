@@ -21,17 +21,18 @@
     </div>
   <% } %>
 
-  <div class="label-caps" style="margin-bottom:6px;">Deployed to<% if (it.deployable) { %> <span class="small faint" style="text-transform:none;letter-spacing:0;">· check empty cells to stage a deploy</span><% } %></div>
+  <% var scope = it.deployScope || 'none'; var interactive = scope === 'all' || scope === 'dev'; %>
+  <div class="label-caps" style="margin-bottom:6px;">Deployed to<% if (interactive) { %> <span class="small faint" style="text-transform:none;letter-spacing:0;">· check empty cells to stage a deploy<% if (scope === 'dev') { %> (dev only — cut a release to deploy further)<% } %></span><% } %></div>
 
-  <% if (it.deployable) { %>
+  <% if (interactive) { %>
     <form hx-post="/cicd/projects/<%= it.projectId %>/kit-deploy/review" hx-target="#deploy-review-<%= rid %>" hx-swap="innerHTML">
       <input type="hidden" name="kit_version" value="<%= it.r.version %>" />
       <input type="hidden" name="versions" value="<%= versionsJson %>" />
       <table class="tbl"><thead><tr><th>Channel</th><% it.ENVS.forEach(function (e) { %><th style="text-align:center;"><%= e %></th><% }) %></tr></thead><tbody>
         <% it.r.channels.forEach(function (c) { %>
           <tr><td><%= c.name %></td>
-            <% it.ENVS.forEach(function (e) { %>
-              <td style="text-align:center;"><% if (c.cells[e]) { %><a class="badge ok" href="/cicd/deployments/<%= c.cells[e] %>" title="Live — view deployment">✓</a><% } else { %><label class="stage-cell" title="Deploy <%= c.name %> → <%= e %>"><input type="checkbox" name="target" value="<%= c.key %>|<%= e %>" /><span aria-hidden="true">+</span></label><% } %></td>
+            <% it.ENVS.forEach(function (e) { var stageable = scope === 'all' || e === 'dev'; %>
+              <td style="text-align:center;"><% if (c.cells[e]) { %><a class="badge ok" href="/cicd/deployments/<%= c.cells[e] %>" title="Live — view deployment">✓</a><% } else if (stageable) { %><label class="stage-cell" title="Deploy <%= c.name %> → <%= e %>"><input type="checkbox" name="target" value="<%= c.key %>|<%= e %>" /><span aria-hidden="true">+</span></label><% } else { %><span class="faint" style="opacity:.3;" title="Cut a release to deploy beyond dev">🔒</span><% } %></td>
             <% }) %>
           </tr>
         <% }) %>
