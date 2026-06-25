@@ -9,7 +9,7 @@
     <div class="sub mono small"><%= it.project.repo %></div>
   </div>
   <span class="grow"></span>
-  <% if (it.project.type === 'firmware-kit' && it.canDeploy && it.tab === 'deployment') { %>
+  <% if (it.project.type === 'firmware-kit' && it.canDeploy && it.tab === 'builds') { %>
     <a class="btn btn-primary" href="/cicd/projects/<%= it.project.id %>/release/new"><i class="icon-rocket"></i> New dev kit</a>
   <% } %>
 </div>
