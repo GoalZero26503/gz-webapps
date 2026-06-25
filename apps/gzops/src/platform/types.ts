@@ -104,7 +104,11 @@ export interface ComponentReleaseStatus {
 export interface VersionLock {
   version: string;
   publish_status: 'pending' | 'published' | 'failed' | 'skipped';
-  github?: { tag?: string; release_url?: string };
+  /** 'gzops' = cut by gzops (full composition); 'github' = imported by the
+   *  GitHub-release sync (provenance-only). Absent ⇒ 'gzops' (legacy). */
+  source?: 'gzops' | 'github';
+  locked_at?: string;
+  github?: { tag?: string; release_url?: string; commit_sha?: string };
   release_notes?: { short?: string; full?: string };
   /** firmware-kit: per-component release results from the cut cascade (Phase E). */
   component_releases?: ComponentReleaseStatus[];
@@ -128,6 +132,9 @@ export interface KitReleaseRow {
   release?: { url?: string; status: string; notesShort?: string };
   /** Per-component release results from the cut cascade (Phase E). */
   componentReleases?: ComponentReleaseStatus[];
+  /** Pre-existing GitHub release imported by sync (source='github') — provenance-only,
+   *  no gzops composition. Cutting it later "enriches" (takes ownership). */
+  imported?: boolean;
 }
 
 /** A single project's version in one environment (Environments lens row). */

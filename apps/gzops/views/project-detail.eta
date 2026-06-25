@@ -115,20 +115,23 @@
   </div></div>
 
   <%~ /* Releases — immutable, GitHub-tagged, deployable anywhere. */ '' %>
-  <div style="display:flex;align-items:baseline;gap:10px;margin:18px 2px 10px;"><span class="label-caps">Releases</span><span class="small faint">immutable · tagged · deployable anywhere</span></div>
+  <div style="display:flex;align-items:baseline;gap:10px;margin:18px 2px 10px;"><span class="label-caps">Releases</span><span class="small faint">immutable · tagged · deployable anywhere</span><span class="grow"></span>
+    <% if (it.canDeploy) { %><span id="sync-msg" class="small faint" style="margin-right:6px;"></span><button class="btn sm" style="padding:3px 9px;font-size:12px;" hx-post="/cicd/projects/<%= it.project.id %>/sync-releases" hx-target="#sync-msg" hx-swap="innerHTML" title="Import the kit repo's existing GitHub releases into gzops and heal any failed publishes">↺ Sync from GitHub</button><% } %>
+  </div>
   <div class="card"><div class="card-body">
     <% if (!cuts.length) { %><div class="small faint">No releases cut yet — cut one from a dev kit above to deploy beyond dev.</div><% } %>
     <% cuts.forEach(function (r) { %>
       <details class="dc-card" style="margin-bottom:10px;">
         <summary style="cursor:pointer;display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
           <span class="badge info">v<%= r.version %></span>
+          <% if (r.imported) { %><span class="badge" title="Pre-existing GitHub release imported by sync — no gzops composition. Cut it to take ownership.">imported</span><% } %>
           <% r.channels.filter(function(c){return Object.keys(c.cells).length;}).forEach(function (c) { %><span class="small"><b><%= c.name.replace(/ Release$/i,'') %></b>: <%= it.ENVS.filter(function(e){return c.cells[e];}).join(', ') %></span><% }) %>
           <span class="grow"></span>
           <% if (r.release && r.release.url) { %><a class="small" href="<%= r.release.url %>" target="_blank" rel="noopener" onclick="event.stopPropagation();" title="<%= r.release.notesShort || 'View GitHub Release' %>">GitHub Release ↗</a><% } %>
           <% if (r.bundle) { %><a class="small" href="/cicd/artifacts/<%= r.bundle.hashId %>/<%= r.bundle.artifactId %>/download" onclick="event.stopPropagation();" title="Download kit bundle (<%= r.bundle.name %>)">bundle ↓</a><% } %>
-          <span class="small faint"><%~ it.timeAgo(r.at) %></span>
+          <% if (r.at) { %><span class="small faint"><%~ it.timeAgo(r.at) %></span><% } %>
         </summary>
-        <%~ include('partials/kit-release-body', { r: r, ENVS: it.ENVS, deployScope: it.canDeploy ? 'all' : 'none', projectId: it.project.id }) %>
+        <%~ include('partials/kit-release-body', { r: r, ENVS: it.ENVS, deployScope: (it.canDeploy && !r.imported) ? 'all' : 'none', projectId: it.project.id }) %>
       </details>
     <% }) %>
   </div></div>
