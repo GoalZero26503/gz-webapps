@@ -182,6 +182,9 @@
         <% }) %>
       </tbody></table></div></div>
 
+  <% /* Artifact routing + Health check don't apply to firmware-kits (they compose
+        component artifacts + publish manifests per channel) — hide for kits. */ %>
+  <% if (it.project.type !== 'firmware-kit') { %>
   <div class="card"><div class="card-head"><h2>Artifact routing</h2></div>
     <div class="card-body flush"><table class="tbl">
       <thead><tr><th>Artifact</th><th>Build</th><th>Deploy pipelines</th><th>Envs</th></tr></thead><tbody>
@@ -193,6 +196,7 @@
             <td><% ;(a.envs||['*']).forEach(function(e){ %><span class="chip"><%= e %></span><% }) %></td></tr>
         <% }) %>
       </tbody></table></div></div>
+  <% } %>
 
   <% if (dc.kit) { %>
     <div class="card"><div class="card-head"><span class="accent-bar"></span><h2>Kit configuration</h2><span class="grow"></span><span class="small faint"><%= dc.kit.host_ids.length %> hosts · <%= (dc.kit.components||[]).length %> components</span></div>
@@ -253,7 +257,7 @@
       </div></div>
   <% } %>
 
-  <% if (dc.health_check) { %>
+  <% if (dc.health_check && it.project.type !== 'firmware-kit') { %>
     <div class="card"><div class="card-head"><h2>Health check</h2></div><div class="card-body">
       <div class="kv"><span class="k">URL</span><span class="v mono"><%= dc.health_check.url %></span></div>
       <div class="kv"><span class="k">Environments</span><span class="v"><% var hcEnvs = dc.health_check.environments || it.ENVS; it.ENVS.forEach(function(e){ var on = hcEnvs.indexOf(e) !== -1; %><span class="chip <%= on ? 'chip-sel' : 'chip-off' %>"><% if (on) { %>✓ <% } %><%= e %></span><% }) %></span></div>
