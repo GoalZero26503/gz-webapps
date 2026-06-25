@@ -108,7 +108,7 @@ export interface VersionLock {
    *  GitHub-release sync (provenance-only). Absent ⇒ 'gzops' (legacy). */
   source?: 'gzops' | 'github';
   locked_at?: string;
-  github?: { tag?: string; release_url?: string; commit_sha?: string };
+  github?: { tag?: string; release_url?: string; commit_sha?: string; prerelease?: boolean };
   release_notes?: { short?: string; full?: string };
   /** firmware-kit: per-component release results from the cut cascade (Phase E). */
   component_releases?: ComponentReleaseStatus[];
@@ -135,6 +135,8 @@ export interface KitReleaseRow {
   /** Pre-existing GitHub release imported by sync (source='github') — provenance-only,
    *  no gzops composition. Cutting it later "enriches" (takes ownership). */
   imported?: boolean;
+  /** GitHub prerelease flag — true until the version lands in prod (any channel). */
+  prerelease?: boolean;
 }
 
 /** A single project's version in one environment (Environments lens row). */
