@@ -31,7 +31,7 @@
         <% it.r.channels.forEach(function (c) { %>
           <tr><td><%= c.name %></td>
             <% it.ENVS.forEach(function (e) { %>
-              <td style="text-align:center;"><% if (c.cells[e]) { %><a class="badge ok" href="/cicd/deployments/<%= c.cells[e] %>" title="Live — view deployment">✓</a><% } else { %><input type="checkbox" name="target" value="<%= c.key %>|<%= e %>" title="Deploy <%= c.name %> → <%= e %>" /><% } %></td>
+              <td style="text-align:center;"><% if (c.cells[e]) { %><a class="badge ok" href="/cicd/deployments/<%= c.cells[e] %>" title="Live — view deployment">✓</a><% } else { %><label class="stage-cell" title="Deploy <%= c.name %> → <%= e %>"><input type="checkbox" name="target" value="<%= c.key %>|<%= e %>" /><span aria-hidden="true">+</span></label><% } %></td>
             <% }) %>
           </tr>
         <% }) %>

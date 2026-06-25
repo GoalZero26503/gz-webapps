@@ -726,3 +726,12 @@ details.collapse[open] summary::before { transform: rotate(90deg); }
 .gz-modal-actions { display: flex; justify-content: flex-end; gap: 8px; }
 @keyframes gz-modal-fade { from { opacity: 0; } to { opacity: 1; } }
 @keyframes gz-modal-pop { from { opacity: 0; transform: translateY(6px) scale(0.98); } to { opacity: 1; transform: none; } }
+
+/* ── Deploy-staging cell (themed checkbox for channel × env in a release) ── */
+.stage-cell { display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 24px; border: 1px dashed var(--border); border-radius: var(--radius-sm); cursor: pointer; color: var(--text-tertiary); font-size: 13px; line-height: 1; transition: all 0.12s ease; user-select: none; }
+.stage-cell:hover { border-color: var(--border-focus); color: var(--gz-green); background: var(--gz-green-dim); }
+.stage-cell input { position: absolute; opacity: 0; width: 0; height: 0; }
+.stage-cell span::before { content: '+'; }
+.stage-cell:has(input:checked) { background: var(--gz-green); border: 1px solid transparent; color: var(--text-inverse); font-weight: 700; }
+.stage-cell:has(input:checked) span::before { content: '✓'; }
+.stage-cell:has(input:focus-visible) { outline: 2px solid var(--border-focus); outline-offset: 1px; }
