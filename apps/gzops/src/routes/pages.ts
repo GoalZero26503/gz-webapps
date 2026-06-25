@@ -281,6 +281,7 @@ export async function pageRoutes(app: FastifyInstance): Promise<void> {
           channels: Object.entries(r.channels).map(([key, cells]) => ({ name: channelLabel(key), key, cells })),
           bundle: bundles.get(r.version),
           release: lock ? { url: lock.github?.release_url, status: lock.publish_status, notesShort: lock.release_notes?.short } : undefined,
+          componentReleases: lock?.component_releases,
         });
       }
     }
