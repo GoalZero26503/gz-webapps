@@ -316,6 +316,11 @@ export async function pageRoutes(app: FastifyInstance): Promise<void> {
           imported: lock.source === 'github',
         });
       }
+      // Order every row by real date descending (deployment date, or the imported
+      // release's created_at). Version sort would be wrong here — the kit repo's
+      // version scheme reset (old v5.x from 2023 outranks the current v1.x), so a
+      // version sort floats ancient releases to the top and looks like a gap.
+      kitReleases.sort((a, b) => (b.at || '').localeCompare(a.at || ''));
     }
 
     // BUILDS artifacts (non-kit) and deploy-config (CONFIG tab) are fetched lazily.
