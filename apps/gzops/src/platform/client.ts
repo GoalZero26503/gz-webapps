@@ -371,6 +371,15 @@ class PlatformClient {
   }
 
   /**
+   * Reconcile gzops version-locks with the repo's actual GitHub Releases: import
+   * pre-existing releases (provenance-only) and self-heal failed publishes.
+   */
+  async syncReleases(projectId: string): Promise<{ imported: number; healed: number; unchanged: number; skipped: number; total: number }> {
+    if (this.isFake) return { imported: 0, healed: 0, unchanged: 0, skipped: 0, total: 0 };
+    return this.postJson(`/projects/${encodeURIComponent(projectId)}/sync-releases`, {});
+  }
+
+  /**
    * Sync a release milestone to GitHub: upsert it across `memberRepos` and
    * create/maintain the `Release` issue in `releaseRepo`. The platform holds no
    * milestone state — the def + membership are resolved here and passed in.

@@ -295,6 +295,25 @@ export async function pageRoutes(app: FastifyInstance): Promise<void> {
           bundle: bundles.get(r.version),
           release: lock ? { url: lock.github?.release_url, status: lock.publish_status, notesShort: lock.release_notes?.short } : undefined,
           componentReleases: lock?.component_releases,
+          imported: lock?.source === 'github',
+        });
+      }
+      // Imported / lock-only releases — pre-existing GitHub releases brought in by
+      // sync have no deployment rows, so add them here (Releases group, every channel
+      // selectable, no gzops composition until a cut "enriches" them).
+      const seenVersions = new Set(order);
+      for (const lock of locks) {
+        if (seenVersions.has(lock.version)) continue;
+        const cut = lock.publish_status === 'published';
+        kitReleases.push({
+          version: lock.version,
+          at: lock.locked_at || '',
+          isDraft: !cut,
+          components: [],
+          channels: allChannelKeys.map((key) => ({ name: channelLabel(key), key, cells: {} })),
+          release: { url: lock.github?.release_url, status: lock.publish_status, notesShort: lock.release_notes?.short },
+          componentReleases: lock.component_releases,
+          imported: lock.source === 'github',
         });
       }
     }
@@ -473,6 +492,24 @@ export async function pageRoutes(app: FastifyInstance): Promise<void> {
         return reply.send('');
       } catch (err) {
         return fail(err instanceof Error ? err.message : 'error');
+      }
+    },
+  );
+
+  // BFF proxy for Sync from GitHub — reconcile gzops version-locks with the repo's
+  // actual GitHub Releases (import pre-existing ones; self-heal failed publishes).
+  // Returns a small summary line + an HX-Refresh so the list reflects the new state.
+  app.post<{ Params: { id: string } }>(
+    '/cicd/projects/:id/sync-releases',
+    { preHandler: requirePermission('deploys:create') },
+    async (request, reply) => {
+      const escHtml = (s: string): string => s.replace(/[<>&]/g, (c) => (c === '<' ? '&lt;' : c === '>' ? '&gt;' : '&amp;'));
+      try {
+        const r = await platform.syncReleases(request.params.id);
+        reply.header('HX-Refresh', 'true');
+        return reply.type('text/html').send(`<span class="small faint">imported ${r.imported} · healed ${r.healed} · ${r.unchanged} unchanged</span>`);
+      } catch (err) {
+        return reply.code(502).type('text/html').send(`<span class="small" style="color:var(--red);">Sync failed: ${escHtml(err instanceof Error ? err.message : 'error')}</span>`);
       }
     },
   );
