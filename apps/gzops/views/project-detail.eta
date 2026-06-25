@@ -124,7 +124,15 @@
           <% r.channels.forEach(function (c) { %><span class="small"><b><%= c.name.replace(/ Release$/i,'') %></b>: <%= it.ENVS.filter(function(e){return c.cells[e];}).join(', ') || '—' %></span><% }) %>
           <span class="grow"></span>
           <% if (r.release && r.release.url) { %><a class="small" href="<%= r.release.url %>" target="_blank" rel="noopener" onclick="event.stopPropagation();" title="<%= r.release.notesShort || 'View GitHub Release' %>">GitHub Release ↗</a>
-          <% } else if (r.release && r.release.status === 'failed') { %><span class="small" style="color:var(--red);" title="Tag/notes publish failed — re-cut to retry">release publish failed</span>
+          <% } else if (r.release && r.release.status === 'failed') { %>
+            <span class="small" style="color:var(--red);">release publish failed</span>
+            <% if (it.canDeploy && r.cutFromDeploymentId) { var rmid = 'recut-msg-' + r.version.replace(/[^a-zA-Z0-9]/g,'-'); %>
+              <form hx-post="/cicd/projects/<%= it.project.id %>/cut-release" hx-confirm="Retry cut for v<%= r.version %>? Re-attempts the GitHub tag + notes (kit + components)." hx-target="#<%= rmid %>" hx-swap="innerHTML" style="display:inline;" onclick="event.stopPropagation();">
+                <input type="hidden" name="deployment_id" value="<%= r.cutFromDeploymentId %>" />
+                <button class="btn sm" type="submit">↻ Retry cut</button>
+              </form>
+              <span id="<%= rmid %>"></span>
+            <% } %>
           <% } else if (r.release && r.release.status === 'pending') { %><span class="small faint">release publishing…</span><% } %>
           <% if (r.bundle) { %><a class="small" href="/cicd/artifacts/<%= r.bundle.hashId %>/<%= r.bundle.artifactId %>/download" onclick="event.stopPropagation();" title="Download kit bundle (<%= r.bundle.name %>)">bundle ↓</a><% } %>
           <span class="small faint"><%~ it.timeAgo(r.at) %></span>
