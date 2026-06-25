@@ -287,9 +287,10 @@ export class GzDeployConfigEditor extends LitElement {
       ${this.error ? html`<div class="callout callout-error">${this.error}</div>` : nothing}
       ${this.renderEnvironments()}
       ${this.renderPipelines()}
-      ${this.renderArtifacts()}
+      ${/* Artifact routing + health check don't apply to kits (they compose component
+           artifacts + publish manifests per channel). */ isKit ? nothing : this.renderArtifacts()}
       ${isKit ? html`${this.m.kit ? this.renderKit() : html`<div class="card"><div class="card-body"><button type="button" class="btn sm" @click=${() => { this.m.kit = { host_ids: [], components: [], releases: [] }; this.bump(); }}>+ Add kit config</button></div></div>`}` : nothing}
-      ${this.renderHealth()}
+      ${isKit ? nothing : this.renderHealth()}
       <div class="dc-savebar">
         <span class="grow"></span>
         <a class="btn btn-ghost" href=${this.cancelUrl}>Cancel</a>
