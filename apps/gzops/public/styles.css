@@ -713,3 +713,16 @@ details.collapse[open] summary::before { transform: rotate(90deg); }
 .ms-new > summary { list-style: none; }
 
 @media (max-width: 720px) { .ms-grid { grid-template-columns: 1fr; } }
+
+/* ── Themed confirm modal (replaces window.confirm / hx-confirm) ───────── */
+.btn-danger { background: var(--red-dim); border-color: rgba(255, 83, 29, 0.35); color: var(--red); }
+.btn-danger:hover { background: rgba(255, 83, 29, 0.18); color: var(--red); }
+
+.gz-modal-overlay { position: fixed; inset: 0; z-index: 1000; display: flex; align-items: center; justify-content: center; padding: 24px; background: rgba(8, 9, 11, 0.62); backdrop-filter: blur(2px); animation: gz-modal-fade 0.12s ease-out; }
+.gz-modal-overlay[hidden] { display: none; }
+.gz-modal { width: min(440px, 100%); background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-lg); box-shadow: 0 16px 48px rgba(0, 0, 0, 0.5); padding: 20px; animation: gz-modal-pop 0.14s cubic-bezier(0.16, 1, 0.3, 1); }
+.gz-modal-title { font-size: 15px; font-weight: 600; color: var(--text-primary); margin-bottom: 8px; }
+.gz-modal-msg { font-size: 13px; line-height: 1.55; color: var(--text-secondary); white-space: pre-wrap; margin-bottom: 18px; }
+.gz-modal-actions { display: flex; justify-content: flex-end; gap: 8px; }
+@keyframes gz-modal-fade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes gz-modal-pop { from { opacity: 0; transform: translateY(6px) scale(0.98); } to { opacity: 1; transform: none; } }

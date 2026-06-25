@@ -106,7 +106,10 @@ export class GzKitRelease extends LitElement {
     const warns = chans.includes('warehouse');
     const msg = `Deploy dev kit ${this.kitVersion} to ${chans.join(', ')} in ‘dev’?`
       + (warns ? `\n\n⚠ The ‘warehouse’ channel triggers automatic updates to devices in factory mode in ‘dev’.` : '');
-    if (!window.confirm(msg)) return;
+    const confirmed = await (window.gzConfirm
+      ? window.gzConfirm({ title: 'Deploy dev kit', message: msg, confirmLabel: 'Deploy dev kit', danger: warns })
+      : Promise.resolve(window.confirm(msg)));
+    if (!confirmed) return;
     this.submitting = true;
     this.submitError = '';
     try {
