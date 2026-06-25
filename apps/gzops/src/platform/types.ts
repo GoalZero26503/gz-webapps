@@ -91,11 +91,23 @@ export interface Deployment {
 }
 
 /** Version lock = the immutable (project, version)→hash binding + published GitHub Release. */
+/** One component's release outcome under a kit Cut Release (Phase E cascade). */
+export interface ComponentReleaseStatus {
+  name: string;
+  project: string;
+  version: string;
+  status: 'released' | 'already' | 'skipped' | 'failed';
+  reason?: string;
+  release_url?: string;
+}
+
 export interface VersionLock {
   version: string;
   publish_status: 'pending' | 'published' | 'failed' | 'skipped';
   github?: { tag?: string; release_url?: string };
   release_notes?: { short?: string; full?: string };
+  /** firmware-kit: per-component release results from the cut cascade (Phase E). */
+  component_releases?: ComponentReleaseStatus[];
 }
 
 /** A composed firmware-kit release (one kit version) for the RELEASES tab. */
@@ -114,6 +126,8 @@ export interface KitReleaseRow {
   bundle?: { hashId: string; artifactId: string; name: string };
   /** GitHub Release (version-lock) created when the kit was cut, if any. */
   release?: { url?: string; status: string; notesShort?: string };
+  /** Per-component release results from the cut cascade (Phase E). */
+  componentReleases?: ComponentReleaseStatus[];
 }
 
 /** A single project's version in one environment (Environments lens row). */

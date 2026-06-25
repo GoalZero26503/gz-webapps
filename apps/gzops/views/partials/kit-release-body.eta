@@ -6,6 +6,21 @@
     <div class="chips" style="margin-bottom:12px;"><% it.r.components.forEach(function (c) { %><span class="chip mono"><%= c.name %> <%= c.version %></span><% }) %></div>
   <% } else { %><div class="small faint" style="margin-bottom:12px;">Not recorded (composed before component versions were tracked).</div><% } %>
 
+  <% if ((it.r.componentReleases || []).length) { %>
+    <div class="label-caps" style="margin-bottom:6px;">Component releases</div>
+    <div class="chips" style="margin-bottom:12px;">
+      <% it.r.componentReleases.forEach(function (cr) { %>
+        <% if (cr.release_url) { %>
+          <a class="chip mono" href="<%= cr.release_url %>" target="_blank" rel="noopener" title="<%= cr.status %> · <%= cr.project %>"><span style="color:var(--gz-green);">✓</span> <%= cr.name %> <%= cr.version %> ↗</a>
+        <% } else if (cr.status === 'skipped') { %>
+          <span class="chip mono" title="<%= cr.reason || 'skipped' %>"><span style="color:var(--yellow);">⚠</span> <%= cr.name %> <%= cr.version %> · skipped</span>
+        <% } else { %>
+          <span class="chip mono" title="<%= cr.reason || cr.status %>"><span style="color:var(--red);">✕</span> <%= cr.name %> <%= cr.version %> · <%= cr.status %></span>
+        <% } %>
+      <% }) %>
+    </div>
+  <% } %>
+
   <div class="label-caps" style="margin-bottom:6px;">Deployed to<% if (it.deployable) { %> <span class="small faint" style="text-transform:none;letter-spacing:0;">· check empty cells to stage a deploy</span><% } %></div>
 
   <% if (it.deployable) { %>
