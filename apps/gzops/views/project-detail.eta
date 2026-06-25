@@ -124,6 +124,7 @@
       <details class="dc-card" style="margin-bottom:10px;">
         <summary style="cursor:pointer;display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
           <span class="badge info">v<%= r.version %></span>
+          <% if (r.prerelease) { %><span class="badge warn" title="Pre-release — not yet deployed to prod. Promotes to a full GitHub release automatically when it lands in prod (any channel).">pre-release</span><% } %>
           <% if (r.imported) { %><span class="badge" title="Pre-existing GitHub release imported by sync — no gzops composition. Cut it to take ownership.">imported</span><% } %>
           <% r.channels.filter(function(c){return Object.keys(c.cells).length;}).forEach(function (c) { %><span class="small"><b><%= c.name.replace(/ Release$/i,'') %></b>: <%= it.ENVS.filter(function(e){return c.cells[e];}).join(', ') %></span><% }) %>
           <span class="grow"></span>

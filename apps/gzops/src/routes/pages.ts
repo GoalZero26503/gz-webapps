@@ -296,6 +296,7 @@ export async function pageRoutes(app: FastifyInstance): Promise<void> {
           release: lock ? { url: lock.github?.release_url, status: lock.publish_status, notesShort: lock.release_notes?.short } : undefined,
           componentReleases: lock?.component_releases,
           imported: lock?.source === 'github',
+          prerelease: lock?.github?.prerelease === true,
         });
       }
       // Imported / lock-only releases — pre-existing GitHub releases brought in by
@@ -314,6 +315,7 @@ export async function pageRoutes(app: FastifyInstance): Promise<void> {
           release: { url: lock.github?.release_url, status: lock.publish_status, notesShort: lock.release_notes?.short },
           componentReleases: lock.component_releases,
           imported: lock.source === 'github',
+          prerelease: lock.github?.prerelease === true,
         });
       }
       // Order every row by real date descending (deployment date, or the imported
