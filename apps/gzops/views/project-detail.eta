@@ -8,6 +8,7 @@
     <div style="display:flex;align-items:center;gap:10px;"><h1><%= it.project.name %></h1><%~ it.typeBadge(it.project.type) %></div>
     <div class="sub mono small"><%= it.project.repo %></div>
   </div>
+  <span class="grow"></span>
   <% if (it.project.type === 'firmware-kit' && it.canDeploy && it.tab === 'deployment') { %>
     <a class="btn btn-primary" href="/cicd/projects/<%= it.project.id %>/release/new"><i class="icon-rocket"></i> New dev kit</a>
   <% } %>
@@ -151,9 +152,10 @@
   </div>
 <% } else if (it.tab === 'config') { %>
   <% var dc = it.deployConfig; %>
+  <% var cfgLabel = it.project.type === 'firmware-kit' ? 'composition' : 'deploy config'; %>
   <% if (it.editing) { %>
   <div class="page-head" style="margin-bottom:14px;">
-    <div style="display:flex;align-items:center;gap:8px;"><h1 style="font-size:19px;margin:0;">Edit deploy config</h1></div>
+    <div style="display:flex;align-items:center;gap:8px;"><h1 style="font-size:19px;margin:0;">Edit <%= cfgLabel %></h1></div>
   </div>
   <gz-deploy-config-editor config="<%= it.deployConfigJson %>" project-id="<%= it.project.id %>" project-type="<%= it.project.type %>" save-url="/cicd/projects/<%= it.project.id %>/config" cancel-url="/cicd/projects/<%= it.project.id %>?tab=config" envs="<%= it.ENVS.join(',') %>" node-projects="<%= it.nodeProjectsJson %>"></gz-deploy-config-editor>
   <% } else { %>
@@ -162,7 +164,7 @@
       <span class="label-caps">Deploy domain</span>
     </div>
     <span class="grow"></span>
-    <% if (it.canEditConfig) { %><a class="btn btn-primary" href="/cicd/projects/<%= it.project.id %>?tab=config&edit=1"><i class="icon-pencil"></i> Edit deploy config</a><% } %>
+    <% if (it.canEditConfig) { %><a class="btn btn-primary" href="/cicd/projects/<%= it.project.id %>?tab=config&edit=1"><i class="icon-pencil"></i> Edit <%= cfgLabel %></a><% } %>
   </div>
 
   <div class="card"><div class="card-head"><span class="accent-bar"></span><h2>Environments</h2></div>
@@ -211,7 +213,7 @@
             <% }) %>
           </tbody></table>
         <% } else { %>
-          <div class="small faint" style="margin-bottom:14px;">No components defined yet — add them via <span class="mono">Edit deploy config</span>.</div>
+          <div class="small faint" style="margin-bottom:14px;">No components defined yet — add them via <span class="mono">Edit <%= cfgLabel %></span>.</div>
         <% } %>
 
         <details>
