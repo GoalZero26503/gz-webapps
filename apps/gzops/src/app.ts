@@ -1,3 +1,5 @@
+import { createHash } from 'node:crypto';
+import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import fastifyCompress from '@fastify/compress';
@@ -18,6 +20,28 @@ import { programRoutes } from './routes/programs.js';
 import { viewHelpers } from './views/helpers.js';
 
 const rootDir = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
+
+/**
+ * Cache-busting asset URLs. App-owned bundles (app.js, styles.css) have stable
+ * filenames, so a deploy that changes them would otherwise be masked by the
+ * browser's cached copy. Stamp `?v=<content-hash>` (computed once at boot) so the
+ * URL changes exactly when the file's bytes change — a deploy is picked up
+ * immediately, and unchanged files keep their cache. Hashing the content (not a
+ * git sha / mtime) needs no build-time env var and never busts on a no-op rebuild.
+ */
+const assetVersions = new Map<string, string>();
+function assetUrl(rel: string): string {
+  let v = assetVersions.get(rel);
+  if (v === undefined) {
+    try {
+      v = createHash('sha1').update(readFileSync(path.join(rootDir, 'public', rel))).digest('hex').slice(0, 10);
+    } catch {
+      v = ''; // file not found (shouldn't happen in a built image) → no query
+    }
+    assetVersions.set(rel, v);
+  }
+  return v ? `${rel}?v=${v}` : rel;
+}
 
 export function buildApp(): FastifyInstance {
   const app = Fastify({
@@ -43,22 +67,29 @@ export function buildApp(): FastifyInstance {
       stage: getConfig().stage,
       version: getConfig().version,
       gitSha: getConfig().gitSha,
+      assetUrl,
       ...viewHelpers,
     },
   });
   // Cache static assets so they stop revalidating on every page load (the old
   // max-age=0 forced a CloudFront→Lambda round-trip per asset per navigation).
-  // Bundles aren't content-hashed, so app-owned assets (app.js, styles.css) use
-  // a short TTL — revalidation-free within a session, refreshed soon after a
-  // deploy — while versioned third-party libs under /vendor cache for a day.
+  // app.js / styles.css are referenced via assetUrl() with a content-hash query, so
+  // their URL changes whenever they change — they can cache immutably for a year
+  // (a deploy is picked up by the new ?v=, never a stale copy). Versioned third-party
+  // libs under /vendor cache for a day; everything else (favicon, etc.) keeps a short TTL.
   app.register(fastifyStatic, {
     root: path.join(rootDir, 'public'),
     prefix: '/',
     wildcard: false,
     cacheControl: false,
     setHeaders(res, filePath) {
-      const maxAge = filePath.includes(`${path.sep}vendor${path.sep}`) ? 86_400 : 600;
-      res.setHeader('cache-control', `public, max-age=${maxAge}`);
+      const isHashed = /(?:app\.js|styles\.css)$/.test(filePath);
+      const cacheControl = isHashed
+        ? 'public, max-age=31536000, immutable'
+        : filePath.includes(`${path.sep}vendor${path.sep}`)
+          ? 'public, max-age=86400'
+          : 'public, max-age=600';
+      res.setHeader('cache-control', cacheControl);
     },
   });
 
