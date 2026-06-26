@@ -175,15 +175,20 @@
       <% it.ENVS.forEach(function (e) { var on = (dc.environments || []).indexOf(e) !== -1; %><span class="chip <%= on ? 'chip-sel' : 'chip-off' %>"><% if (on) { %>✓ <% } %><%= e %></span><% }) %>
     </div></div></div>
 
+  <% var isFwNode = it.project.type === 'firmware-node'; %>
   <div class="card"><div class="card-head"><h2>Deploy pipelines</h2><span class="grow"></span><span class="small faint"><%= (dc.deploy_pipelines||[]).length %></span></div>
     <div class="card-body flush"><table class="tbl">
-      <thead><tr><th>Name</th><th>Plugin</th><th>Config</th></tr></thead><tbody>
+      <thead><tr><th>Name</th><th>Plugin</th><th><%= isFwNode ? 'Node IDs' : 'Config' %></th></tr></thead><tbody>
         <% if (!(dc.deploy_pipelines||[]).length) { %><tr><td colspan="3"><div class="empty-state">No deploy pipelines</div></td></tr><% } %>
         <% ;(dc.deploy_pipelines||[]).forEach(function (p) { %>
           <tr><td class="mono"><%= p.name %></td><td><span class="badge type"><%= p.plugin %></span></td>
-            <td class="mono small faint"><%= JSON.stringify(p.config || {}) %></td></tr>
+            <% if (isFwNode && p.config && (p.config.node_ids||[]).length) { %>
+              <td><div class="chips"><% (p.config.node_ids||[]).forEach(function(n){ %><span class="chip mono"><%= n %></span><% }) %></div></td>
+            <% } else { %><td class="mono small faint"><%= JSON.stringify(p.config || {}) %></td><% } %></tr>
         <% }) %>
-      </tbody></table></div></div>
+      </tbody></table>
+      <% if (isFwNode) { %><div class="small faint" style="padding:8px 12px;">Bucket &amp; path are inferred by convention — <span class="mono">gz-{env}-firmware-images</span> · <span class="mono">{nodeId}/{version}.{ext}</span>. Override via <span class="mono">Edit deploy config → Edit raw JSON</span>.</div><% } %>
+    </div></div>
 
   <% /* Artifact routing + Health check don't apply to firmware-kits (they compose
         component artifacts + publish manifests per channel) — hide for kits. */ %>
