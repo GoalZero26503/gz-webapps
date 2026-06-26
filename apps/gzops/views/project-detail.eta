@@ -183,7 +183,7 @@
         <% ;(dc.deploy_pipelines||[]).forEach(function (p) { %>
           <tr><td class="mono"><%= p.name %></td><td><span class="badge type"><%= p.plugin %></span></td>
             <% if (isFwNode && p.config && (p.config.node_ids||[]).length) { %>
-              <td><div class="chips"><% (p.config.node_ids||[]).forEach(function(n){ %><span class="chip mono"><%= n %></span><% }) %></div></td>
+              <td><div class="chips"><% ;(p.config.node_ids||[]).forEach(function(n){ %><span class="chip mono"><%= n %></span><% }) %></div></td>
             <% } else { %><td class="mono small faint"><%= JSON.stringify(p.config || {}) %></td><% } %></tr>
         <% }) %>
       </tbody></table>
