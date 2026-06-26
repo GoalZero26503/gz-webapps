@@ -78,7 +78,10 @@ export class GzDeployConfigEditor extends LitElement {
     this.m = {
       environments: parsed.environments ?? [],
       deploy_pipelines: parsed.deploy_pipelines ?? [],
-      artifacts: parsed.artifacts ?? [],
+      // Normalize optional list fields the editor mutates in place — a stored artifact
+      // can omit deploy_pipelines (e.g. a bundle that isn't deployed), which would crash
+      // the routing toggles' .includes/.filter.
+      artifacts: (parsed.artifacts ?? []).map((a) => ({ ...a, deploy_pipelines: a.deploy_pipelines ?? [], envs: a.envs ?? ['*'] })),
       kit: parsed.kit,
       health_check: parsed.health_check,
       note: '',
