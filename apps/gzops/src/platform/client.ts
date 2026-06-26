@@ -793,10 +793,24 @@ function normalizeDeployment(raw: unknown): Deployment {
   };
 }
 
-/** Pull the published manifests (key → s3 destination) out of a deployment result. */
+/** Pull the published manifests (key → destination) out of a deployment result. */
 function manifestsFromResult(result: unknown): { key: string; uri: string }[] | undefined {
-  const urls = (result as { urls?: Record<string, string> } | undefined)?.urls;
+  const res = result as { urls?: Record<string, string>; external_id?: string; metadata?: { appId?: string } } | undefined;
+  const urls = res?.urls;
   if (!urls || typeof urls !== 'object') return undefined;
-  const list = Object.entries(urls).map(([key, uri]) => ({ key, uri: String(uri) }));
+  // Firebase App Distribution: the URL reported by the deploy is a malformed console
+  // deep-link (doubles the `android:` segment → 404). Rebuild the canonical tester
+  // link from the app id + release id (result.external_id) the deploy also records —
+  // release-specific when we have it, else the app's releases list. Both are the
+  // working `appdistribution.firebase.google.com` form.
+  const appId = res.metadata?.appId;
+  const releaseId = res.external_id;
+  const list = Object.entries(urls).map(([key, uri]) => {
+    if (appId && /firebase/i.test(String(uri))) {
+      const base = `https://appdistribution.firebase.google.com/testerapps/${appId}/releases`;
+      return { key: 'Firebase App Distribution', uri: releaseId ? `${base}/${releaseId}` : base };
+    }
+    return { key, uri: String(uri) };
+  });
   return list.length ? list : undefined;
 }
