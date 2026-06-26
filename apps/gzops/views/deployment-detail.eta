@@ -22,18 +22,30 @@
 <% } %>
 
 <% if (it.deployment.manifests && it.deployment.manifests.length) { %>
+  <% var isLink = function (u) { return /^https?:/i.test(u || ''); }; %>
+  <%~ /* Two kinds of "published" rows: downloadable manifest/image files (s3://…) get
+        View/Download; external destinations (a Firebase/console URL) are just a link —
+        there's no object to fetch, so don't offer Download (it 404s). */ '' %>
+  <% var hasFiles = it.deployment.manifests.some(function (m) { return !isLink(m.uri); }); %>
   <div class="card" style="margin-bottom:16px;">
-    <div class="card-head"><span class="accent-bar"></span><h2>Published manifests</h2><span class="grow"></span><span class="small faint"><%= it.deployment.manifests.length %> file<%= it.deployment.manifests.length === 1 ? '' : 's' %></span></div>
+    <div class="card-head"><span class="accent-bar"></span><h2><%= hasFiles ? 'Published manifests' : 'Published to' %></h2><span class="grow"></span><span class="small faint"><%= it.deployment.manifests.length %> <%= (hasFiles ? 'file' : 'destination') + (it.deployment.manifests.length === 1 ? '' : 's') %></span></div>
     <div class="card-body flush"><table class="tbl">
-      <thead><tr><th>Manifest</th><th>Destination</th><th></th></tr></thead><tbody>
+      <thead><tr><th><%= hasFiles ? 'Manifest' : 'Target' %></th><th>Destination</th><th></th></tr></thead><tbody>
         <% it.deployment.manifests.forEach(function (m) { %>
           <tr>
             <td class="mono small"><%= m.key %></td>
-            <td class="mono small faint"><%= m.uri %></td>
-            <td style="white-space:nowrap;text-align:right;">
-              <a class="btn sm ghost" href="/cicd/deployments/<%= it.deployment.id %>/manifest?key=<%= encodeURIComponent(m.key) %>" target="_blank" rel="noopener">View</a>
-              <a class="btn sm ghost" href="/cicd/deployments/<%= it.deployment.id %>/manifest?key=<%= encodeURIComponent(m.key) %>&download=1">Download</a>
-            </td>
+            <% if (isLink(m.uri)) { %>
+              <td class="mono small"><a href="<%= m.uri %>" target="_blank" rel="noopener"><%= m.uri %></a></td>
+              <td style="white-space:nowrap;text-align:right;">
+                <a class="btn sm ghost" href="<%= m.uri %>" target="_blank" rel="noopener">Open ↗</a>
+              </td>
+            <% } else { %>
+              <td class="mono small faint"><%= m.uri %></td>
+              <td style="white-space:nowrap;text-align:right;">
+                <a class="btn sm ghost" href="/cicd/deployments/<%= it.deployment.id %>/manifest?key=<%= encodeURIComponent(m.key) %>" target="_blank" rel="noopener">View</a>
+                <a class="btn sm ghost" href="/cicd/deployments/<%= it.deployment.id %>/manifest?key=<%= encodeURIComponent(m.key) %>&download=1">Download</a>
+              </td>
+            <% } %>
           </tr>
         <% }) %>
       </tbody></table></div>
