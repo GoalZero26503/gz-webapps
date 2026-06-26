@@ -46,6 +46,9 @@ export class GzDeployConfigEditor extends LitElement {
   @state() private error = '';
   /** Which section descriptions are expanded (keyed by section title). */
   @state() private infoOpen = new Set<string>();
+  /** Raw-JSON escape hatch: edit the whole config as text (advanced). */
+  @state() private raw = false;
+  @state() private rawText = '';
 
   // Light DOM so global app styles apply.
   protected createRenderRoot(): HTMLElement { return this; }
@@ -84,19 +87,56 @@ export class GzDeployConfigEditor extends LitElement {
 
   private bump(): void { this.m = { ...this.m }; }
 
+  /** Assemble the POST body from the structured model. */
+  private body(): Model {
+    return {
+      environments: this.m.environments,
+      deploy_pipelines: this.m.deploy_pipelines,
+      artifacts: this.m.artifacts,
+      ...(this.m.kit ? { kit: this.m.kit } : {}),
+      ...(this.m.health_check?.url ? { health_check: this.m.health_check } : {}),
+      note: this.m.note || undefined,
+    };
+  }
+
+  /** Toggle the raw-JSON escape hatch, syncing model ⇄ text on each switch. */
+  private toggleRaw(): void {
+    if (!this.raw) {
+      this.rawText = JSON.stringify(this.body(), null, 2);
+      this.raw = true;
+      this.error = '';
+    } else {
+      try {
+        const p = JSON.parse(this.rawText) as Partial<Model>;
+        if (!Array.isArray(p.environments) || !Array.isArray(p.deploy_pipelines)) {
+          throw new Error('environments and deploy_pipelines must be arrays');
+        }
+        this.m = {
+          environments: p.environments, deploy_pipelines: p.deploy_pipelines,
+          artifacts: p.artifacts ?? [], kit: p.kit, health_check: p.health_check, note: this.m.note,
+        };
+        this.raw = false;
+        this.error = '';
+      } catch (e) {
+        this.error = `Invalid JSON: ${e instanceof Error ? e.message : 'parse error'}`;
+      }
+    }
+  }
+
   // ── Save ──────────────────────────────────────────────────
   private async save(): Promise<void> {
     this.saving = true;
     this.error = '';
     try {
-      const body: Model = {
-        environments: this.m.environments,
-        deploy_pipelines: this.m.deploy_pipelines,
-        artifacts: this.m.artifacts,
-        ...(this.m.kit ? { kit: this.m.kit } : {}),
-        ...(this.m.health_check?.url ? { health_check: this.m.health_check } : {}),
-        note: this.m.note || undefined,
-      };
+      let body: Model;
+      if (this.raw) {
+        try { body = JSON.parse(this.rawText) as Model; } catch { throw new Error('Invalid JSON — fix it before saving'); }
+        if (!Array.isArray(body.environments) || !Array.isArray(body.deploy_pipelines)) {
+          throw new Error('environments and deploy_pipelines must be arrays');
+        }
+      } else {
+        body = this.body();
+      }
       const res = await fetch(this.saveUrl, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
@@ -131,7 +171,42 @@ export class GzDeployConfigEditor extends LitElement {
     });
   }
 
+  /** firmware-node: the only real input is the node IDs each image fans out to.
+   *  bucket + path follow the firmware convention (inferred by the platform), so we
+   *  surface just name + node IDs; "Edit raw JSON" exposes everything else. */
+  private renderNodePipelines(): TemplateResult {
+    return this.section('Deploy pipelines', html`
+      ${this.m.deploy_pipelines.map((p, i) => {
+        const nodeIds = Array.isArray(p.config?.node_ids) ? (p.config!.node_ids as string[]) : [];
+        return html`
+        <div class="dc-card">
+          <div class="dc-row">
+            <input class="dc-in" placeholder="pipeline name (e.g. firmware-s3)" .value=${p.name}
+              @input=${(ev: Event) => { p.name = (ev.target as HTMLInputElement).value; }} />
+            <button type="button" class="btn sm ghost" @click=${() => { this.m.deploy_pipelines.splice(i, 1); this.bump(); }}>✕</button>
+          </div>
+          <div class="dc-sub"><span class="label-caps">Node IDs (one per line)</span>
+            <textarea class="dc-in mono wide" style="min-height:84px;" placeholder="N-37500-A10-1&#10;N-37500-A20-1" .value=${nodeIds.join('\n')}
+              @change=${(ev: Event) => {
+                const ids = (ev.target as HTMLTextAreaElement).value.split(/[\n,]/).map((s) => s.trim()).filter(Boolean);
+                // Keep only the variable bits — drop bucket/path so the platform applies
+                // the firmware-node convention; preserve anything else (e.g. role_arn).
+                const { bucket: _b, path_template: _p, ...rest } = (p.config ?? {}) as Record<string, unknown>;
+                p.config = { ...rest, node_ids: ids };
+                this.bump();
+              }}></textarea>
+          </div>
+        </div>`;
+      })}
+      <button type="button" class="btn sm" @click=${() => { this.m.deploy_pipelines = [...this.m.deploy_pipelines, { name: '', plugin: 's3', config: { node_ids: [] } }]; this.bump(); }}>+ Add pipeline</button>
+    `, false, {
+      short: 'Where each node firmware image is published. You only set the node IDs — gzops infers the bucket (gz-{env}-firmware-images) and path ({nodeId}/{version}.{ext}).',
+      full: 'Most firmware-node projects have one pipeline (all node IDs); some fan different SKU groups to separate pipelines. Need a non-standard bucket/path or a cross-account role? Use “Edit raw JSON”.',
+    });
+  }
+
   private renderPipelines(): TemplateResult {
+    if (this.projectType === 'firmware-node') return this.renderNodePipelines();
     return this.section('Deploy pipelines', html`
       ${this.m.deploy_pipelines.map((p, i) => html`
         <div class="dc-row">
@@ -285,12 +360,23 @@ export class GzDeployConfigEditor extends LitElement {
     const isKit = this.projectType === 'firmware-kit' || !!this.m.kit;
     return html`
       ${this.error ? html`<div class="callout callout-error">${this.error}</div>` : nothing}
-      ${this.renderEnvironments()}
-      ${this.renderPipelines()}
-      ${/* Artifact routing + health check don't apply to kits (they compose component
-           artifacts + publish manifests per channel). */ isKit ? nothing : this.renderArtifacts()}
-      ${isKit ? html`${this.m.kit ? this.renderKit() : html`<div class="card"><div class="card-body"><button type="button" class="btn sm" @click=${() => { this.m.kit = { host_ids: [], components: [], releases: [] }; this.bump(); }}>+ Add kit config</button></div></div>`}` : nothing}
-      ${isKit ? nothing : this.renderHealth()}
+      <div class="dc-row" style="align-items:center;margin-bottom:10px;">
+        <span class="small faint">${this.raw ? 'Raw JSON — the full deploy config' : 'Basic editor'}</span>
+        <span class="grow"></span>
+        <button type="button" class="btn sm ghost" @click=${() => this.toggleRaw()}>${this.raw ? '← Basic editor' : '{ } Edit raw JSON'}</button>
+      </div>
+      ${this.raw
+        ? html`<div class="card"><div class="card-body">
+            <textarea class="dc-in mono" style="width:100%;min-height:440px;" .value=${this.rawText}
+              @input=${(ev: Event) => { this.rawText = (ev.target as HTMLTextAreaElement).value; }}></textarea>
+          </div></div>`
+        : html`
+          ${this.renderEnvironments()}
+          ${this.renderPipelines()}
+          ${/* Artifact routing + health check don't apply to kits (they compose component
+               artifacts + publish manifests per channel). */ isKit ? nothing : this.renderArtifacts()}
+          ${isKit ? html`${this.m.kit ? this.renderKit() : html`<div class="card"><div class="card-body"><button type="button" class="btn sm" @click=${() => { this.m.kit = { host_ids: [], components: [], releases: [] }; this.bump(); }}>+ Add kit config</button></div></div>`}` : nothing}
+          ${isKit ? nothing : this.renderHealth()}`}
       <div class="dc-savebar">
         <span class="grow"></span>
         <a class="btn btn-ghost" href=${this.cancelUrl}>Cancel</a>
