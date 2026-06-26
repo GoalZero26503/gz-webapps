@@ -1,4 +1,3 @@
-import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -22,25 +21,23 @@ import { viewHelpers } from './views/helpers.js';
 const rootDir = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
 
 /**
- * Cache-busting asset URLs. App-owned bundles (app.js, styles.css) have stable
- * filenames, so a deploy that changes them would otherwise be masked by the
- * browser's cached copy. Stamp `?v=<content-hash>` (computed once at boot) so the
- * URL changes exactly when the file's bytes change — a deploy is picked up
- * immediately, and unchanged files keep their cache. Hashing the content (not a
- * git sha / mtime) needs no build-time env var and never busts on a no-op rebuild.
+ * Map a logical asset path (e.g. /assets/app.js) to its content-hashed filename
+ * (e.g. /assets/app.<hash>.js), built by scripts/hash-assets.mjs into
+ * public/assets/manifest.json. Hashed FILENAMES (not a ?v= query on a stable name)
+ * are required behind a Lambda fleet + CloudFront: a hashed filename can never be
+ * served stale bytes (an old instance 404s a name it doesn't have) and changing the
+ * filename busts every cached copy. Falls back to the logical path if the manifest
+ * is missing (e.g. local dev before a build).
  */
-const assetVersions = new Map<string, string>();
-function assetUrl(rel: string): string {
-  let v = assetVersions.get(rel);
-  if (v === undefined) {
-    try {
-      v = createHash('sha1').update(readFileSync(path.join(rootDir, 'public', rel))).digest('hex').slice(0, 10);
-    } catch {
-      v = ''; // file not found (shouldn't happen in a built image) → no query
-    }
-    assetVersions.set(rel, v);
+const ASSET_MANIFEST: Record<string, string> = (() => {
+  try {
+    return JSON.parse(readFileSync(path.join(rootDir, 'public', 'assets', 'manifest.json'), 'utf8'));
+  } catch {
+    return {};
   }
-  return v ? `${rel}?v=${v}` : rel;
+})();
+function assetUrl(rel: string): string {
+  return ASSET_MANIFEST[rel] ?? rel;
 }
 
 export function buildApp(): FastifyInstance {
@@ -73,22 +70,23 @@ export function buildApp(): FastifyInstance {
   });
   // Cache static assets so they stop revalidating on every page load (the old
   // max-age=0 forced a CloudFront→Lambda round-trip per asset per navigation).
-  // app.js / styles.css are referenced via assetUrl() with a content-hash query, so
-  // their URL changes whenever they change — they can cache immutably for a year
-  // (a deploy is picked up by the new ?v=, never a stale copy). Versioned third-party
-  // libs under /vendor cache for a day; everything else (favicon, etc.) keeps a short TTL.
+  // Content-hashed assets (app.<hash>.js, styles.<hash>.css — the names the manifest
+  // points at) cache immutably for a year: the filename IS the content, so it can
+  // never be stale. Versioned third-party libs under /vendor cache for a day. The
+  // un-hashed originals (bare app.js/styles.css) + everything else (favicon) get a
+  // short TTL — they're never referenced by the page but stay self-healing if hit.
+  const HASHED = /\.[0-9a-f]{10}\.(?:js|css)$/;
   app.register(fastifyStatic, {
     root: path.join(rootDir, 'public'),
     prefix: '/',
     wildcard: false,
     cacheControl: false,
     setHeaders(res, filePath) {
-      const isHashed = /(?:app\.js|styles\.css)$/.test(filePath);
-      const cacheControl = isHashed
+      const cacheControl = HASHED.test(filePath)
         ? 'public, max-age=31536000, immutable'
         : filePath.includes(`${path.sep}vendor${path.sep}`)
           ? 'public, max-age=86400'
-          : 'public, max-age=600';
+          : 'public, max-age=300';
       res.setHeader('cache-control', cacheControl);
     },
   });
