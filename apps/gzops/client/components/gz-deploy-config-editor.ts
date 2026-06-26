@@ -94,7 +94,12 @@ export class GzDeployConfigEditor extends LitElement {
   private body(): Model {
     return {
       environments: this.m.environments,
-      deploy_pipelines: this.m.deploy_pipelines,
+      // Trim + drop blank node IDs (empty input rows) on save.
+      deploy_pipelines: this.m.deploy_pipelines.map((p) => {
+        const ids = (p.config as { node_ids?: unknown } | undefined)?.node_ids;
+        if (!Array.isArray(ids)) return p;
+        return { ...p, config: { ...p.config, node_ids: ids.map((s) => String(s).trim()).filter(Boolean) } };
+      }),
       artifacts: this.m.artifacts,
       ...(this.m.kit ? { kit: this.m.kit } : {}),
       ...(this.m.health_check?.url ? { health_check: this.m.health_check } : {}),
@@ -177,10 +182,21 @@ export class GzDeployConfigEditor extends LitElement {
   /** firmware-node: the only real input is the node IDs each image fans out to.
    *  bucket + path follow the firmware convention (inferred by the platform), so we
    *  surface just name + node IDs; "Edit raw JSON" exposes everything else. */
+  /** Ensure a pipeline carries an editable node_ids array and no inferred-convention
+   *  keys — firmware-node config is just node_ids (bucket/path are applied by the
+   *  platform). Idempotent; keeps any other keys (e.g. role_arn). */
+  private nodeIdsOf(p: Pipeline): string[] {
+    const cfg = (p.config ??= {}) as Record<string, unknown>;
+    delete cfg.bucket;
+    delete cfg.path_template;
+    if (!Array.isArray(cfg.node_ids)) cfg.node_ids = [];
+    return cfg.node_ids as string[];
+  }
+
   private renderNodePipelines(): TemplateResult {
     return this.section('Deploy pipelines', html`
       ${this.m.deploy_pipelines.map((p, i) => {
-        const nodeIds = Array.isArray(p.config?.node_ids) ? (p.config!.node_ids as string[]) : [];
+        const nodeIds = this.nodeIdsOf(p);
         return html`
         <div class="dc-card">
           <div class="dc-row">
@@ -188,16 +204,15 @@ export class GzDeployConfigEditor extends LitElement {
               @input=${(ev: Event) => { p.name = (ev.target as HTMLInputElement).value; }} />
             <button type="button" class="btn sm ghost" @click=${() => { this.m.deploy_pipelines.splice(i, 1); this.bump(); }}>✕</button>
           </div>
-          <div class="dc-sub"><span class="label-caps">Node IDs (one per line)</span>
-            <textarea class="dc-in mono wide" style="min-height:84px;" placeholder="N-37500-A10-1&#10;N-37500-A20-1" .value=${nodeIds.join('\n')}
-              @change=${(ev: Event) => {
-                const ids = (ev.target as HTMLTextAreaElement).value.split(/[\n,]/).map((s) => s.trim()).filter(Boolean);
-                // Keep only the variable bits — drop bucket/path so the platform applies
-                // the firmware-node convention; preserve anything else (e.g. role_arn).
-                const { bucket: _b, path_template: _p, ...rest } = (p.config ?? {}) as Record<string, unknown>;
-                p.config = { ...rest, node_ids: ids };
-                this.bump();
-              }}></textarea>
+          <div class="dc-sub"><span class="label-caps">Node IDs</span>
+            ${nodeIds.map((n, j) => html`
+              <div class="dc-row">
+                <input class="dc-in mono wide" placeholder="N-37500-A10-1" .value=${n}
+                  @input=${(ev: Event) => { nodeIds[j] = (ev.target as HTMLInputElement).value.trim(); }} />
+                <button type="button" class="btn sm ghost" title="Remove node ID" @click=${() => { nodeIds.splice(j, 1); this.bump(); }}>✕</button>
+              </div>`)}
+            ${nodeIds.length ? nothing : html`<div class="small faint" style="margin:2px 0 6px;">No node IDs yet.</div>`}
+            <button type="button" class="btn sm" @click=${() => { nodeIds.push(''); this.bump(); }}>+ Add node ID</button>
           </div>
         </div>`;
       })}
