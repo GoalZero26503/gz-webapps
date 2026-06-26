@@ -246,12 +246,19 @@ export class GzDeployConfigEditor extends LitElement {
   private renderArtifacts(): TemplateResult {
     const pipeNames = this.m.deploy_pipelines.map((p) => p.name).filter(Boolean);
     return this.section('Artifact routing', html`
+      ${this.m.artifacts.length ? html`
+        <div class="dc-row" style="padding:0 12px;margin-bottom:4px;">
+          <span class="label-caps" style="flex:1;">Reference name</span>
+          <span class="label-caps" style="flex:1;">File name pattern</span>
+          <span class="label-caps" style="flex:1;">Build pipeline</span>
+          <span style="width:30px;flex:none;"></span>
+        </div>` : nothing}
       ${this.m.artifacts.map((a, i) => html`
         <div class="dc-card">
           <div class="dc-row">
-            <input class="dc-in" placeholder="id" .value=${a.id} @input=${(ev: Event) => { a.id = (ev.target as HTMLInputElement).value; }} />
-            <input class="dc-in mono" placeholder="name_pattern (*.zip)" .value=${a.name_pattern} @input=${(ev: Event) => { a.name_pattern = (ev.target as HTMLInputElement).value; }} />
-            <input class="dc-in" placeholder="build pipeline" .value=${a.build_pipeline} @input=${(ev: Event) => { a.build_pipeline = (ev.target as HTMLInputElement).value; }} />
+            <input class="dc-in" placeholder="e.g. bms-ota" title="A short reference name for this routing rule" .value=${a.id} @input=${(ev: Event) => { a.id = (ev.target as HTMLInputElement).value; }} />
+            <input class="dc-in mono" placeholder="e.g. {project}.{pipeline}.v{version}.bin" title="Filename glob the build produces — supports {project}/{pipeline}/{version}/{hash_short} placeholders and * wildcards" .value=${a.name_pattern} @input=${(ev: Event) => { a.name_pattern = (ev.target as HTMLInputElement).value; }} />
+            <input class="dc-in" placeholder="e.g. bms" title="The build pipeline (CI job) that produces this artifact" .value=${a.build_pipeline} @input=${(ev: Event) => { a.build_pipeline = (ev.target as HTMLInputElement).value; }} />
             <button type="button" class="btn sm ghost" @click=${() => { this.m.artifacts.splice(i, 1); this.bump(); }}>✕</button>
           </div>
           <div class="dc-sub"><span class="label-caps">Deploy via</span>
@@ -265,7 +272,7 @@ export class GzDeployConfigEditor extends LitElement {
       <button type="button" class="btn sm" @click=${() => { this.m.artifacts = [...this.m.artifacts, { id: '', name_pattern: '', build_pipeline: '', deploy_pipelines: [], envs: ['*'] }]; this.bump(); }}>+ Add artifact</button>
     `, false, {
       short: 'Routes build outputs to deploy pipelines — connects “a build finished” to “deploy it here, this way”.',
-      full: 'Each rule matches the files a build produces by filename glob (name_pattern, e.g. *.zip or pcu-*.bin), names the build pipeline that produced them, and sends matches through the chosen deploy pipeline(s) — limited to the selected environments (* = all). Firmware-kit projects publish manifests per channel and usually need no artifact rules.',
+      full: 'Each rule has three fields: Reference name (any short label for the rule), File name pattern (a filename glob the build emits — e.g. *.zip or {project}.{pipeline}.v{version}.bin), and Build pipeline (the CI build job/pipeline that produced the file). Matching files are sent through the chosen Deploy via pipeline(s), limited to the selected Envs (* = all). Firmware-kit projects publish manifests per channel and usually need no artifact rules.',
     });
   }
 
