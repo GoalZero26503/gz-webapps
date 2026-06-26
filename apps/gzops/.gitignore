@@ -1,6 +1,8 @@
 # Generated client assets (build:client)
 public/assets/
 public/vendor/
+# Content-hashed copies of tracked assets, emitted by scripts/hash-assets.mjs
+public/styles.*.css
 
 # Local env
 .env
