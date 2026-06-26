@@ -93,6 +93,18 @@ export function buildApp(): FastifyInstance {
     },
   });
 
+  // SSR HTML (full pages + HTMX partials) must never be cached: it embeds the
+  // content-hashed asset URLs, so a stale HTML doc would keep pointing at an old
+  // bundle (defeating the cache-bust) — and it's per-user authed content. Mark every
+  // text/html response no-store unless a route set its own cache policy.
+  app.addHook('onSend', async (_req, reply, payload) => {
+    const ct = reply.getHeader('content-type');
+    if (typeof ct === 'string' && ct.includes('text/html') && !reply.getHeader('cache-control')) {
+      reply.header('cache-control', 'no-store');
+    }
+    return payload;
+  });
+
   app.register(authPlugin);
   app.register(authRoutes);
   app.register(pageRoutes);
