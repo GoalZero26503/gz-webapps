@@ -14,7 +14,7 @@ import { customElement, property, state } from 'lit/decorators.js';
  */
 
 interface Pipeline { name: string; plugin: string; runner?: string; config?: Record<string, unknown> }
-interface ArtifactDef { id: string; name_pattern: string; build_pipeline: string; deploy_pipelines: string[]; envs?: string[] }
+interface ArtifactDef { id: string; name_pattern: string; build_pipeline: string; deploy_pipelines: string[]; envs?: string[]; role?: 'deployable' | 'bundle'; type?: string }
 interface KitComp { name: string; project: string; set?: 'iNode' | 'xNode'; slots?: string[]; artifact?: string; version?: string }
 interface KitRelease { version?: string; build_targets?: string[]; manifest: { iNodes: Record<string, string>; xNodes?: Record<string, string> } }
 interface Kit { host_ids: string[]; components?: KitComp[]; releases: KitRelease[] }
@@ -152,6 +152,14 @@ export class GzDeployConfigEditor extends LitElement {
         if (offenders.length) {
           throw new Error(`These components have no OTA image (role: deployable) in their project — define one first: ${offenders.join(', ')}`);
         }
+        // firmware-node must declare both an OTA image and a bundle.
+        if (this.projectType === 'firmware-node') {
+          const need = [
+            this.m.artifacts.some((a) => a.role === 'deployable') ? '' : 'an OTA image (role: deployable)',
+            this.m.artifacts.some((a) => a.role === 'bundle') ? '' : 'a bundle (role: bundle)',
+          ].filter(Boolean);
+          if (need.length) throw new Error(`A firmware-node project must define ${need.join(' and ')} — set each artifact's Role.`);
+        }
         body = this.body();
       }
       const res = await fetch(this.saveUrl, {
@@ -254,7 +262,16 @@ export class GzDeployConfigEditor extends LitElement {
 
   private renderArtifacts(): TemplateResult {
     const pipeNames = this.m.deploy_pipelines.map((p) => p.name).filter(Boolean);
+    // firmware-node projects must declare both an OTA image (flashed to the device,
+    // staged into firmware-images on a kit deploy) and a bundle (attached to the kit
+    // GitHub release). Warn until both roles are present.
+    const isNode = this.projectType === 'firmware-node';
+    const hasRole = (r: 'deployable' | 'bundle'): boolean => this.m.artifacts.some((a) => a.role === r);
+    const missingRoles = isNode
+      ? [hasRole('deployable') ? '' : 'an OTA image (role: deployable)', hasRole('bundle') ? '' : 'a bundle (role: bundle)'].filter(Boolean)
+      : [];
     return this.section('Artifact routing', html`
+      ${missingRoles.length ? html`<div class="callout callout-error" style="margin-bottom:10px;">⚠ A firmware-node project must define ${missingRoles.join(' and ')}. Set each artifact's Role below.</div>` : nothing}
       ${this.m.artifacts.length ? html`
         <div class="dc-row" style="padding:0 12px;margin-bottom:4px;">
           <span class="label-caps" style="flex:1;">Reference name</span>
@@ -269,6 +286,14 @@ export class GzDeployConfigEditor extends LitElement {
             <input class="dc-in mono" placeholder="e.g. {project}.{pipeline}.v{version}.bin" title="Filename glob the build produces — supports {project}/{pipeline}/{version}/{hash_short} placeholders and * wildcards" .value=${a.name_pattern} @input=${(ev: Event) => { a.name_pattern = (ev.target as HTMLInputElement).value; }} />
             <input class="dc-in" placeholder="e.g. bms" title="The build pipeline (CI job) that produces this artifact" .value=${a.build_pipeline} @input=${(ev: Event) => { a.build_pipeline = (ev.target as HTMLInputElement).value; }} />
             <button type="button" class="btn sm ghost" @click=${() => { this.m.artifacts.splice(i, 1); this.bump(); }}>✕</button>
+          </div>
+          <div class="dc-sub"><span class="label-caps">Role</span>
+            <div class="chips">
+              ${([['deployable', 'OTA image'], ['bundle', 'Bundle']] as const).map(([r, label]) => html`
+                <button type="button" class="chip ${a.role === r ? 'chip-on' : ''}"
+                  title=${r === 'deployable' ? 'The firmware image flashed to the device — staged to gz-{env}-firmware-images on a kit deploy' : 'Packaged bundle — attached to the kit GitHub release, never flashed'}
+                  @click=${() => { a.role = a.role === r ? undefined : r; this.bump(); }}>${a.role === r ? '✓ ' : ''}${label}</button>`)}
+            </div>
           </div>
           <div class="dc-sub"><span class="label-caps">Deploy via</span>
             <div class="chips">${pipeNames.length ? pipeNames.map((n) => html`
