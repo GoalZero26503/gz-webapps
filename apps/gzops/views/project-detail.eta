@@ -2,6 +2,15 @@
 <% var depVer = (it.project.rail && it.project.rail.dev) ? it.project.rail.dev.v : 'latest'; %>
 <% var navFor = function (e) { return it.latestByEnv[e] ? '/cicd/deployments/' + it.latestByEnv[e] : null; }; %>
 <% var navForChannel = function (channel, e) { var m = it.latestByChannelEnv && it.latestByChannelEnv[channel]; return (m && m[e]) ? '/cicd/deployments/' + m[e] : null; }; %>
+<%~ /* A live kit cell opens a View/Promote/Un-publish menu. Un-publish is admin-only
+      beyond dev (deploys:create suffices on dev). */ '' %>
+<% var cellMenuFor = function (channel, e, c) {
+     if (!c || !it.canDeploy) return null;
+     var m = it.latestByChannelEnv && it.latestByChannelEnv[channel];
+     var id = m && m[e];
+     if (!id) return null;
+     return { projectId: it.project.id, env: e, channel: channel, version: c.v, deploymentId: id, canUnpublish: (e === 'dev' ? it.canDeploy : !!it.isAdmin) };
+   }; %>
 
 <div class="page-head">
   <div>
@@ -29,7 +38,7 @@
     </div>
     <div class="card-body">
       <% if (it.project.type === 'firmware-kit' && it.project.channels) { %>
-        <%~ it.channelRail(it.project.channels, navForChannel, true) %>
+        <%~ it.channelRail(it.project.channels, navForChannel, true, cellMenuFor) %>
         <div class="rail-legend">
           <span><span class="warn-flag">⚠</span> warehouse = factory auto-update</span>
           <span class="rl-line">│ dev is the pre-release (draft) zone — promote left → right</span>

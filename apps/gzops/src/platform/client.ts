@@ -370,6 +370,13 @@ class PlatformClient {
     return this.postJson(`/projects/${encodeURIComponent(projectId)}/cut-release`, { deployment_id: input.deploymentId, by: input.by });
   }
 
+  /** Un-publish a kit deployment: delete its published manifests from the channel
+   *  bucket (node images + gzops artifacts are kept; re-deploy re-publishes). */
+  async undeploy(projectId: string, deploymentId: string, by?: string): Promise<{ undeployed: boolean; version?: string | null; removed?: number }> {
+    if (this.isFake) return { undeployed: true, removed: 0 };
+    return this.postJson(`/projects/${encodeURIComponent(projectId)}/undeploy`, { deployment_id: deploymentId, by });
+  }
+
   /**
    * Reconcile gzops version-locks with the repo's actual GitHub Releases: import
    * pre-existing releases (provenance-only) and self-heal failed publishes.
