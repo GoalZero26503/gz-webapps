@@ -1,40 +1,47 @@
-/* GZ dark theme tokens — shared design language across internal webapps. */
+/* GZ dark theme — "field power-station control panel": warm olive-charcoal,
+   electric lime, industrial condensed display + technical mono labels, tight
+   equipment-framed panels. Matches the gz-static-pages / Yeti Inspector look. */
 :root {
-  --gz-green: #bfd22b;
-  --gz-green-dim: rgba(191, 210, 43, 0.15);
-  --gz-green-glow: rgba(191, 210, 43, 0.25);
-  --gz-green-muted: #8a9a1f;
+  --gz-green: #c7e64d;          /* electric lime */
+  --gz-green-hot: #d9f56a;
+  --gz-green-dim: rgba(199, 230, 77, 0.14);
+  --gz-green-glow: rgba(199, 230, 77, 0.28);
+  --gz-green-muted: #8aa82a;
 
-  --cyan: #00e5ff;
-  --blue: #1c9ad6;
-  --orange: #ff9531;
-  --red: #ff531d;
-  --red-dim: rgba(255, 83, 29, 0.1);
-  --yellow: #ffcd1d;
+  --cyan: #6fd6c8;
+  --blue: #5aa9d6;
+  --orange: #f0b24a;
+  --amber: #f0b24a;
+  --red: #ff6a4d;
+  --red-dim: rgba(255, 106, 77, 0.12);
+  --yellow: #f0b24a;
 
-  --bg-root: #0e0f11;
-  --bg-primary: #141518;
-  --bg-card: #1a1c20;
-  --bg-card-hover: #1f2126;
-  --bg-elevated: #222428;
-  --bg-input: rgba(255, 255, 255, 0.04);
-  --bg-input-focus: rgba(255, 255, 255, 0.07);
+  /* warm olive-charcoal ramp (greenish near-black) */
+  --bg-root: #0d0f0b;
+  --bg-primary: #11140d;
+  --bg-card: #15180f;
+  --bg-card-hover: #1b1f14;
+  --bg-elevated: #1b1f14;
+  --bg-input: rgba(199, 230, 77, 0.04);
+  --bg-input-focus: rgba(199, 230, 77, 0.08);
 
-  --border: rgba(255, 255, 255, 0.06);
-  --border-subtle: rgba(255, 255, 255, 0.04);
-  --border-focus: rgba(191, 210, 43, 0.4);
+  /* lime-tinted hairlines — the "equipment frame" */
+  --border: rgba(199, 230, 77, 0.15);
+  --border-subtle: rgba(255, 255, 255, 0.06);
+  --border-focus: rgba(199, 230, 77, 0.55);
 
-  --text-primary: rgba(255, 255, 255, 0.92);
-  --text-secondary: rgba(255, 255, 255, 0.55);
-  --text-tertiary: rgba(255, 255, 255, 0.3);
-  --text-inverse: #0e0f11;
+  --text-primary: #f3f6e9;      /* warm ink */
+  --text-secondary: #9aa284;    /* olive-grey */
+  --text-tertiary: #6f7860;
+  --text-inverse: #11140a;      /* dark — on-lime text */
 
-  --radius-sm: 6px;
-  --radius-md: 8px;
-  --radius-lg: 12px;
+  --radius-sm: 3px;
+  --radius-md: 4px;
+  --radius-lg: 6px;
 
-  --font-sans: 'DM Sans', -apple-system, sans-serif;
-  --font-mono: 'JetBrains Mono', monospace;
+  --font-sans: 'Saira', system-ui, -apple-system, sans-serif;
+  --font-display: 'Saira Condensed', 'Saira', 'Arial Narrow', sans-serif;
+  --font-mono: 'Space Mono', ui-monospace, 'JetBrains Mono', monospace;
 
   --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
 }
@@ -57,7 +64,53 @@ body {
   background: var(--bg-root);
   color: var(--text-primary);
   line-height: 1.5;
+  position: relative;
 }
+
+/* Atmosphere: faint lime engineering grid + a soft glow from the top, fading out
+   down the page. Fixed behind everything (the shell panels sit on opaque bg). */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(1100px 600px at 22% -6%, rgba(199, 230, 77, 0.10), transparent 70%),
+    radial-gradient(800px 700px at 100% 0%, rgba(120, 150, 40, 0.06), transparent 60%),
+    linear-gradient(rgba(199, 230, 77, 0.035) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(199, 230, 77, 0.035) 1px, transparent 1px);
+  background-size: 100% 100%, 100% 100%, 46px 46px, 46px 46px;
+  -webkit-mask-image: linear-gradient(180deg, #000 0%, #000 50%, transparent 100%);
+  mask-image: linear-gradient(180deg, #000 0%, #000 50%, transparent 100%);
+}
+/* Fine grain overlay for an analog, equipment-panel texture. */
+body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  opacity: 0.4;
+  mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.5'/%3E%3C/svg%3E");
+}
+/* App shell sits above the atmosphere. */
+.topnav, .sidebar, .main, .gate { position: relative; z-index: 1; }
+
+/* Top "charge bar": a lime current sweeping across the very top edge. */
+.charge-bar {
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  height: 2px;
+  z-index: 60;
+  pointer-events: none;
+  background: linear-gradient(90deg, transparent, var(--gz-green-muted), var(--gz-green), var(--gz-green-hot), var(--gz-green), var(--gz-green-muted), transparent);
+  background-size: 250% 100%;
+  animation: charge 6s linear infinite;
+}
+@keyframes charge { to { background-position: -250% 0; } }
+@media (prefers-reduced-motion: reduce) { .charge-bar { animation: none; } }
 
 a {
   color: inherit;
@@ -65,12 +118,20 @@ a {
 }
 
 h1 {
-  font-size: 1.5rem;
+  font-family: var(--font-display);
+  font-size: 1.7rem;
+  font-weight: 700;
+  letter-spacing: 0.005em;
+  text-transform: uppercase;
   margin-bottom: 0.5rem;
 }
 
 h2 {
-  font-size: 1rem;
+  font-family: var(--font-display);
+  font-size: 1.05rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
   margin-bottom: 0.5rem;
 }
 
@@ -120,14 +181,17 @@ h2 {
 
 /* ── Components ─────────────────────────────────────── */
 .btn {
-  font-family: var(--font-sans);
-  padding: 0.45rem 0.9rem;
+  font-family: var(--font-display);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 0.45rem 0.95rem;
   border-radius: var(--radius-sm);
   border: 1px solid var(--border);
   background: var(--bg-elevated);
   color: var(--text-primary);
   cursor: pointer;
-  transition: background 0.15s var(--ease-out);
+  transition: background 0.15s var(--ease-out), border-color 0.15s var(--ease-out);
 }
 
 .btn:hover {
@@ -159,9 +223,13 @@ h2 {
 
 .badge {
   display: inline-block;
-  padding: 0.1rem 0.5rem;
-  border-radius: 999px;
-  font-size: 0.75rem;
+  padding: 0.12rem 0.5rem;
+  border-radius: var(--radius-sm);
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
   background: var(--bg-elevated);
   border: 1px solid var(--border);
   color: var(--text-secondary);
@@ -308,7 +376,7 @@ select:focus {
 .small { font-size: 12px; }
 .grow { flex: 1; }
 .block { display: flex; justify-content: center; width: 100%; }
-.label-caps { font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-tertiary); }
+.label-caps { font-family: var(--font-mono); font-size: 10px; font-weight: 700; letter-spacing: 0.2em; text-transform: uppercase; color: var(--text-tertiary); }
 
 /* Artifact download links: read as plain filenames, accent only on interaction.
    `.tbl a` (green) has equal specificity + comes later in the file, so qualify
@@ -378,8 +446,9 @@ button.chip.chip-on { background: var(--gz-green-dim); border-color: var(--gz-gr
 .area-tabs { display: flex; align-items: center; gap: 4px; height: 100%; }
 .area-tabs .tab {
   display: flex; align-items: center; height: 100%; padding: 0 16px;
-  color: var(--text-secondary); font-weight: 600; font-size: 13.5px;
-  border-bottom: 3px solid transparent; border-top: 3px solid transparent;
+  color: var(--text-secondary); font-family: var(--font-display); font-weight: 600; font-size: 14px;
+  text-transform: uppercase; letter-spacing: 0.06em;
+  border-bottom: 2px solid transparent; border-top: 2px solid transparent;
 }
 .area-tabs .tab:hover { color: var(--text-primary); }
 .area-tabs .tab.active { color: var(--text-primary); border-bottom-color: var(--gz-green); }
@@ -458,7 +527,7 @@ button.chip.chip-on { background: var(--gz-green-dim); border-color: var(--gz-gr
 .nav-item:hover { background: var(--bg-elevated); color: var(--text-primary); }
 .nav-item.active { background: var(--gz-green-dim); color: var(--text-primary); border-left-color: var(--gz-green); }
 .nav-item .ico { width: 18px; text-align: center; opacity: 0.8; }
-.nav-section { margin-top: 14px; padding: 6px 10px 4px; font-size: 10px; font-weight: 700; letter-spacing: 0.1em; color: var(--text-tertiary); text-transform: uppercase; }
+.nav-section { margin-top: 14px; padding: 6px 10px 4px; font-family: var(--font-mono); font-size: 9.5px; font-weight: 700; letter-spacing: 0.22em; color: var(--text-tertiary); text-transform: uppercase; }
 .sidebar .spacer { flex: 1; }
 .sidebar .foot { padding: 8px 10px; font-size: 11px; color: var(--text-tertiary); font-family: var(--font-mono); line-height: 1.5; }
 .sidebar .foot .foot-line { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -475,8 +544,8 @@ button.chip.chip-on { background: var(--gz-green-dim); border-color: var(--gz-gr
 /* ── Cards (override template default) ──────────────────── */
 .card { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 0; margin-bottom: 18px; }
 .card-head { display: flex; align-items: center; gap: 10px; padding: 12px 16px; border-bottom: 1px solid var(--border); }
-.card-head h2 { font-size: 14px; font-weight: 600; margin: 0; }
-.card-head .accent-bar { width: 4px; height: 18px; border-radius: 2px; background: var(--gz-green); }
+.card-head h2 { font-family: var(--font-display); font-size: 15px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; margin: 0; }
+.card-head .accent-bar { width: 3px; height: 16px; border-radius: 1px; background: var(--gz-green); box-shadow: 0 0 8px var(--gz-green-glow); }
 .card-body { padding: 16px; }
 .card-body.flush { padding: 0; }
 
@@ -537,8 +606,8 @@ table.tbl { width: 100%; border-collapse: collapse; }
 
 /* ── Filters / pills ────────────────────────────────────── */
 .filters { display: flex; align-items: center; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; }
-.pill { padding: 4px 12px; border-radius: 999px; border: 1px solid var(--border); background: var(--bg-card); font-size: 12px; font-weight: 600; color: var(--text-secondary); cursor: pointer; }
-.pill:hover { color: var(--text-primary); }
+.pill { padding: 5px 13px; border-radius: var(--radius-sm); border: 1px solid var(--border); background: var(--bg-card); font-family: var(--font-mono); font-size: 11px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-secondary); cursor: pointer; transition: color 0.15s var(--ease-out), border-color 0.15s var(--ease-out); }
+.pill:hover { color: var(--text-primary); border-color: var(--gz-green-muted); }
 .pill.active { background: var(--gz-green); border-color: var(--gz-green); color: var(--text-inverse); }
 
 /* ── Buttons: prototype modifiers ───────────────────────── */
