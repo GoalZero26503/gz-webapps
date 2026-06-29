@@ -103,5 +103,23 @@
     <%~ it.body %>
   </main>
   <% } %>
+  <%~ /* Charge bar as a loading indicator: light it while an HTMX request or a
+        non-HTMX form submit is in flight. (Active-deploy pages add body.deploy-live.) */ '' %>
+  <script>
+    (function () {
+      var bar = document.querySelector('.charge-bar');
+      if (!bar) return;
+      var n = 0;
+      var show = function () { n++; bar.classList.add('active'); };
+      var hide = function () { n = Math.max(0, n - 1); if (n === 0) bar.classList.remove('active'); };
+      document.body.addEventListener('htmx:beforeRequest', show);
+      document.body.addEventListener('htmx:afterRequest', hide);
+      // Full-page (non-HTMX) form submits navigate away — flash the bar until unload.
+      document.addEventListener('submit', function (e) {
+        var f = e.target;
+        if (f && f.tagName === 'FORM' && !f.matches('[hx-post],[hx-get],[hx-put],[hx-delete]')) show();
+      }, true);
+    })();
+  </script>
 </body>
 </html>
