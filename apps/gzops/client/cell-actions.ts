@@ -54,7 +54,7 @@ function openMenu(ds: DOMStringMap): void {
         const res = await fetch(`/cicd/projects/${encodeURIComponent(project)}/undeploy`, {
           method: 'POST',
           headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({ deployment_id: id, environment: env }),
+          body: JSON.stringify({ channel, version, environment: env }),
         });
         if (!res.ok) {
           const j = (await res.json().catch(() => ({}))) as { error?: string };
