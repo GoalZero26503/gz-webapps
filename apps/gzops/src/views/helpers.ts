@@ -51,7 +51,21 @@ export function statusBadge(status: string): string {
 
 /** A live cell's action-menu context (kit Status rail). When present the cell opens
  *  a View / Promote / Un-publish menu (client/cell-actions.ts) instead of navigating. */
-export interface CellMenu { projectId: string; env: string; channel: string; version: string; deploymentId: string; canUnpublish: boolean }
+export interface CellMenu {
+  projectId: string;
+  env: string;
+  /** Raw pipeline name the platform matches on (e.g. `app-release`). */
+  channelKey: string;
+  /** Display label (e.g. `App Release`) for the menu title. */
+  channelLabel: string;
+  /** Versioned channel ({version} manifests) → Un-publish deletes a version. A
+   *  fixed-pointer channel (warehouse/manual) offers Revert (re-deploy) instead. */
+  versioned: boolean;
+  version: string;
+  deploymentId: string;
+  /** May run the destructive/revert action (admin beyond dev). */
+  canUnpublish: boolean;
+}
 
 /** One promotion-rail cell. `nav` (a hash/href) makes the cell a deep link; `menu`
  *  (kit cells) turns it into an action menu instead. */
@@ -66,7 +80,7 @@ export function cell(c: RailCell | null | undefined, nav?: string | null, draftC
   const v = esc(c.v) + (c.b ? ` <span class="faint">(${c.b})</span>` : '');
   const interactive = !!(menu || nav);
   const attrs = menu
-    ? ` data-cell-menu data-project="${esc(menu.projectId)}" data-env="${esc(menu.env)}" data-channel="${esc(menu.channel)}" data-version="${esc(menu.version)}" data-deployment-id="${esc(menu.deploymentId)}" data-can-unpublish="${menu.canUnpublish ? '1' : '0'}" style="cursor:pointer;" title="Actions — View · Promote · Un-publish"`
+    ? ` data-cell-menu data-project="${esc(menu.projectId)}" data-env="${esc(menu.env)}" data-channel-key="${esc(menu.channelKey)}" data-channel-label="${esc(menu.channelLabel)}" data-versioned="${menu.versioned ? '1' : '0'}" data-version="${esc(menu.version)}" data-deployment-id="${esc(menu.deploymentId)}" data-can-unpublish="${menu.canUnpublish ? '1' : '0'}" style="cursor:pointer;" title="Actions — View · Promote · ${menu.versioned ? 'Un-publish' : 'Revert'}"`
     : nav ? ` data-nav="${esc(nav)}" onclick="location.href='${esc(nav)}'" style="cursor:pointer;" title="View deployment"` : '';
   return `<div class="cell ${cls}${interactive ? ' cell-link' : ''}${dc}"${attrs}><div class="v">${v}</div><div class="meta">${meta}</div></div>`;
 }
