@@ -535,8 +535,10 @@ export async function pageRoutes(app: FastifyInstance): Promise<void> {
       try {
         const result = await platform.cutRelease(request.params.id, { deploymentId, by: request.user!.email });
         if (result.publish_status === 'failed') return fail(result.publish_error || 'release publish error');
+        // Non-empty body + explicit content-type: an empty 200 gets malformed over
+        // HTTP/2 by the Lambda-URL/CloudFront path, aborting the HX-Redirect.
         reply.header('HX-Redirect', `/cicd/projects/${request.params.id}?tab=builds`);
-        return reply.send('');
+        return reply.type('text/html').send('<div class="small faint">Release cut…</div>');
       } catch (err) {
         return fail(err instanceof Error ? err.message : 'error');
       }
@@ -642,8 +644,11 @@ export async function pageRoutes(app: FastifyInstance): Promise<void> {
         }
       }
       if (errors.length) return reply.code(502).type('text/html').send(`<div class="small" style="color:var(--red);">Some deploys failed — ${escHtml(errors.join('; '))}</div>`);
+      // HX-Redirect drives the client-side navigation. Send a NON-empty body with an
+      // explicit content-type — an empty 200 body gets malformed over HTTP/2 by the
+      // Lambda-URL/CloudFront path (ERR_HTTP2_PROTOCOL_ERROR), aborting the redirect.
       reply.header('HX-Redirect', `/cicd/projects/${request.params.id}?tab=builds`);
-      return reply.send('');
+      return reply.type('text/html').send('<div class="small faint">Deploy started…</div>');
     },
   );
 
