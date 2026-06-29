@@ -534,18 +534,19 @@ export async function pageRoutes(app: FastifyInstance): Promise<void> {
   // BFF proxy for Un-publish (un-deploy): delete a kit deployment's published
   // manifests. Baseline deploys:create; beyond dev it's admin-only (prod un-publish
   // is high-blast-radius). Returns JSON for the cell-menu's fetch.
-  app.post<{ Params: { id: string }; Body: { deployment_id?: string; environment?: string } }>(
+  app.post<{ Params: { id: string }; Body: { channel?: string; version?: string; environment?: string } }>(
     '/cicd/projects/:id/undeploy',
     { preHandler: requirePermission('deploys:create') },
     async (request, reply) => {
-      const deploymentId = request.body?.deployment_id;
+      const channel = request.body?.channel;
+      const version = request.body?.version;
       const env = request.body?.environment;
-      if (!deploymentId) return reply.code(400).send({ error: 'deployment_id is required' });
-      if (env && env !== 'dev' && request.user!.role !== 'admin') {
+      if (!channel || !env) return reply.code(400).send({ error: 'channel and environment are required' });
+      if (env !== 'dev' && request.user!.role !== 'admin') {
         return reply.code(403).send({ error: `Un-publishing from ${env} requires an admin role.` });
       }
       try {
-        const result = await platform.undeploy(request.params.id, deploymentId, request.user!.email);
+        const result = await platform.undeploy(request.params.id, { channel, version, environment: env }, request.user!.email);
         return reply.send(result);
       } catch (err) {
         return reply.code(502).send({ error: err instanceof Error ? err.message : 'un-publish failed' });

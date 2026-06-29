@@ -372,9 +372,9 @@ class PlatformClient {
 
   /** Un-publish a kit deployment: delete its published manifests from the channel
    *  bucket (node images + gzops artifacts are kept; re-deploy re-publishes). */
-  async undeploy(projectId: string, deploymentId: string, by?: string): Promise<{ undeployed: boolean; version?: string | null; removed?: number }> {
+  async undeploy(projectId: string, target: { channel: string; version?: string; environment: string }, by?: string): Promise<{ undeployed: boolean; version?: string | null; removed?: number }> {
     if (this.isFake) return { undeployed: true, removed: 0 };
-    return this.postJson(`/projects/${encodeURIComponent(projectId)}/undeploy`, { deployment_id: deploymentId, by });
+    return this.postJson(`/projects/${encodeURIComponent(projectId)}/undeploy`, { ...target, by });
   }
 
   /**
