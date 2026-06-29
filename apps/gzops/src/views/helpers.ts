@@ -49,8 +49,13 @@ export function statusBadge(status: string): string {
   return `<span class="badge ${cls}">${esc(label)}</span>`;
 }
 
-/** One promotion-rail cell. `nav` (a hash/href) makes the cell a deep link. */
-export function cell(c: RailCell | null | undefined, nav?: string | null, draftCol = false): string {
+/** A live cell's action-menu context (kit Status rail). When present the cell opens
+ *  a View / Promote / Un-publish menu (client/cell-actions.ts) instead of navigating. */
+export interface CellMenu { projectId: string; env: string; channel: string; version: string; deploymentId: string; canUnpublish: boolean }
+
+/** One promotion-rail cell. `nav` (a hash/href) makes the cell a deep link; `menu`
+ *  (kit cells) turns it into an action menu instead. */
+export function cell(c: RailCell | null | undefined, nav?: string | null, draftCol = false, menu?: CellMenu | null): string {
   const dc = draftCol ? ' draft-col' : '';
   if (!c) return `<div class="cell empty${dc}"><div class="v">—</div></div>`;
   const cls = c.state || 'live';
@@ -59,8 +64,11 @@ export function cell(c: RailCell | null | undefined, nav?: string | null, draftC
   else if (c.state === 'failed') meta = `<span class="dot err"></span>${esc(c.note || 'failed')}`;
   else meta = `${c.age ? esc(c.age) : ''}${c.age ? ' · ' : ''}<span class="dot ok"></span>`;
   const v = esc(c.v) + (c.b ? ` <span class="faint">(${c.b})</span>` : '');
-  const navAttrs = nav ? ` data-nav="${esc(nav)}" onclick="location.href='${esc(nav)}'" style="cursor:pointer;" title="View deployment"` : '';
-  return `<div class="cell ${cls}${nav ? ' cell-link' : ''}${dc}"${navAttrs}><div class="v">${v}</div><div class="meta">${meta}</div></div>`;
+  const interactive = !!(menu || nav);
+  const attrs = menu
+    ? ` data-cell-menu data-project="${esc(menu.projectId)}" data-env="${esc(menu.env)}" data-channel="${esc(menu.channel)}" data-version="${esc(menu.version)}" data-deployment-id="${esc(menu.deploymentId)}" data-can-unpublish="${menu.canUnpublish ? '1' : '0'}" style="cursor:pointer;" title="Actions — View · Promote · Un-publish"`
+    : nav ? ` data-nav="${esc(nav)}" onclick="location.href='${esc(nav)}'" style="cursor:pointer;" title="View deployment"` : '';
+  return `<div class="cell ${cls}${interactive ? ' cell-link' : ''}${dc}"${attrs}><div class="v">${v}</div><div class="meta">${meta}</div></div>`;
 }
 
 export function envHeader(offset = false, kit = false): string {
@@ -76,12 +84,12 @@ export function railSkeleton(): string {
   return `<div class="rail-scroll">${envHeader(false)}<div class="rail">${ENVS.map(() => `<div class="cell"><div class="v faint">…</div></div>`).join('')}</div></div>`;
 }
 
-export function channelRail(channels: Record<string, Rail>, navFor?: ChannelNavFor, kit = false): string {
+export function channelRail(channels: Record<string, Rail>, navFor?: ChannelNavFor, kit = false, menuFor?: (channel: string, env: Env, c: RailCell | null | undefined) => CellMenu | null): string {
   const rows = Object.entries(channels)
     .map(([name, envs]) => {
       // Warehouse = factory auto-update → flag it so the implication is visible.
       const warn = kit && /warehouse/i.test(name) ? ' <span class="warn-flag" title="factory auto-update">⚠</span>' : '';
-      return `<span class="env-label">${esc(name)}${warn}</span>${ENVS.map((e, i) => cell(envs[e], navFor ? navFor(name, e) : null, kit && i === 0)).join('')}`;
+      return `<span class="env-label">${esc(name)}${warn}</span>${ENVS.map((e, i) => cell(envs[e], navFor ? navFor(name, e) : null, kit && i === 0, menuFor ? menuFor(name, e, envs[e]) : null)).join('')}`;
     })
     .join('');
   return `<div class="rail-scroll">${envHeader(true, kit)}<div class="rail labeled${kit ? ' kit' : ''}">${rows}</div></div>`;

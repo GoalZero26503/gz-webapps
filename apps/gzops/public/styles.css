@@ -837,6 +837,13 @@ details.collapse[open] summary::before { transform: rotate(90deg); }
 .gz-modal-actions { display: flex; justify-content: flex-end; gap: 8px; }
 @keyframes gz-modal-fade { from { opacity: 0; } to { opacity: 1; } }
 @keyframes gz-modal-pop { from { opacity: 0; transform: translateY(6px) scale(0.98); } to { opacity: 1; transform: none; } }
+/* Status-rail cell action menu (View / Promote / Un-publish) */
+.cell-menu { width: min(360px, 100%); }
+.cell-menu .cell-menu-head { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; margin-bottom: 14px; }
+.cell-menu .cell-menu-body { display: flex; flex-direction: column; gap: 8px; margin-bottom: 16px; }
+.cell-menu .cell-menu-body .btn { width: 100%; justify-content: flex-start; text-align: left; }
+.cell-menu .cell-menu-body p { color: var(--text-secondary); line-height: 1.55; }
+.cell-menu .cell-menu-foot { display: flex; justify-content: flex-end; gap: 8px; }
 
 /* ── Deploy-staging cell (themed checkbox for channel × env in a release) ── */
 .stage-cell { display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 24px; border: 1px dashed var(--border); border-radius: var(--radius-sm); cursor: pointer; color: var(--text-tertiary); font-size: 13px; line-height: 1; transition: all 0.12s ease; user-select: none; }
