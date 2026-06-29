@@ -1,4 +1,8 @@
 <% layout('layout') %>
+<% /* Watching a live deploy → keep the charge bar running until it reaches a terminal state. */ %>
+<% if (['pending', 'resolving_secrets', 'in_progress'].indexOf(it.deployment.status) !== -1) { %>
+  <script>document.body.classList.add('deploy-live');</script>
+<% } %>
 <div class="page-head">
   <div>
     <div style="display:flex;align-items:center;gap:10px;">

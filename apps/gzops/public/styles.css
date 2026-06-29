@@ -99,18 +99,27 @@ body::after {
 .topnav, .sidebar, .main, .gate { position: relative; z-index: 1; }
 
 /* Top "charge bar": a lime current sweeping across the very top edge. */
+/* Charge bar = a LOADING indicator only: a lime current sweeps the top edge while
+   a form/HTMX request is in flight (.active, driven by JS) or while watching an
+   active deploy (body.deploy-live). Hidden + idle otherwise. */
 .charge-bar {
   position: fixed;
   top: 0; left: 0; right: 0;
   height: 2px;
   z-index: 60;
   pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.2s var(--ease-out);
   background: linear-gradient(90deg, transparent, var(--gz-green-muted), var(--gz-green), var(--gz-green-hot), var(--gz-green), var(--gz-green-muted), transparent);
   background-size: 250% 100%;
-  animation: charge 6s linear infinite;
+}
+.charge-bar.active,
+body.deploy-live .charge-bar {
+  opacity: 1;
+  animation: charge 1.1s linear infinite;
 }
 @keyframes charge { to { background-position: -250% 0; } }
-@media (prefers-reduced-motion: reduce) { .charge-bar { animation: none; } }
+@media (prefers-reduced-motion: reduce) { .charge-bar.active, body.deploy-live .charge-bar { animation: none; } }
 
 a {
   color: inherit;
@@ -290,7 +299,8 @@ h2 {
 
 /* ── Forms & tables ─────────────────────────────────── */
 input,
-select {
+select,
+textarea {
   font-family: var(--font-sans);
   font-size: 0.9rem;
   padding: 0.45rem 0.7rem;
@@ -300,11 +310,15 @@ select {
   color: var(--text-primary);
 }
 
+/* Lime focus ring — instrument-panel feedback on every text field. */
 input:focus,
-select:focus {
+select:focus,
+textarea:focus,
+.dc-in:focus {
   outline: none;
   border-color: var(--border-focus);
   background: var(--bg-input-focus);
+  box-shadow: 0 0 0 3px var(--gz-green-dim);
 }
 
 .invite-form {
@@ -577,7 +591,24 @@ table.tbl { width: 100%; border-collapse: collapse; }
 .rail.labeled { grid-template-columns: 110px repeat(6, 1fr); }
 .rail .env-label { font-size: 11px; font-weight: 700; letter-spacing: 0.06em; color: var(--text-tertiary); text-transform: uppercase; align-self: center; }
 .rail .env-label a { color: var(--gz-green); }
-.cell { border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 7px 9px; min-height: 52px; background: var(--bg-card); }
+/* env-rail cells: a faint CRT scanline texture over the panel, with a lime glow
+   that lifts on hover (a "readout" coming alive under the cursor). */
+.cell {
+  position: relative;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 7px 9px;
+  min-height: 52px;
+  background:
+    repeating-linear-gradient(0deg, rgba(199, 230, 77, 0.025) 0 1px, transparent 1px 3px),
+    var(--bg-card);
+  transition: border-color 0.16s var(--ease-out), box-shadow 0.16s var(--ease-out), transform 0.16s var(--ease-out);
+}
+.cell:hover {
+  border-color: var(--gz-green-muted);
+  box-shadow: inset 0 0 0 1px var(--gz-green-dim), 0 0 16px -3px var(--gz-green-glow);
+}
+.cell.cell-link:hover { transform: translateY(-1px); border-color: var(--gz-green); }
 .cell .v { font-family: var(--font-mono); font-size: 12.5px; font-weight: 600; }
 .cell .meta { font-size: 11px; color: var(--text-tertiary); margin-top: 2px; display: flex; align-items: center; gap: 5px; }
 .cell.live { border-color: rgba(191, 210, 43, 0.4); }
@@ -587,7 +618,6 @@ table.tbl { width: 100%; border-collapse: collapse; }
 .cell.failed .v { color: var(--red); }
 .cell.empty { border-style: dashed; background: transparent; }
 .cell.empty .v { color: var(--text-tertiary); font-weight: 400; }
-.cell.cell-link:hover { border-color: var(--gz-green); }
 .rail.compact .cell { min-height: 30px; padding: 4px 8px; }
 .rail.compact .cell .v { font-size: 11.5px; font-weight: 500; }
 .rail-envs { display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; margin-bottom: 6px; }
