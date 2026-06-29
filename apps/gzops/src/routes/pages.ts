@@ -24,6 +24,23 @@ function nextKitVersion(versions: string[]): string {
   return best ? `${best[0]}.${best[1]}.${best[2] + 1}` : '1.0.0';
 }
 
+/** Count "current" deploy failures: group by project × env × channel (pipeline) and
+ *  count only groups whose MOST-RECENT deploy failed — a later success to the same
+ *  target clears the failure (so the badge doesn't stay red forever). */
+function currentFailureCount(
+  deployments: { projectId: string; env: string; pipeline: string; status: string; at: string }[],
+): number {
+  const latest = new Map<string, { status: string; at: string }>();
+  for (const d of deployments) {
+    const key = `${d.projectId}|${d.env}|${d.pipeline}`;
+    const cur = latest.get(key);
+    if (!cur || d.at > cur.at) latest.set(key, { status: d.status, at: d.at });
+  }
+  let n = 0;
+  for (const d of latest.values()) if (d.status === 'failed') n++;
+  return n;
+}
+
 const byId = (projects: Project[]): Record<string, Project> =>
   Object.fromEntries(projects.map((p) => [p.id, p]));
 
@@ -174,7 +191,9 @@ export async function pageRoutes(app: FastifyInstance): Promise<void> {
       releaseRepo,
       health: programHealth(program.sections, projById),
       inflight: deployments.filter((d) => d.status === 'in_progress').length,
-      failures: deployments.filter((d) => d.status === 'failed').length,
+      // A failure is "current" only if it's the latest deploy for that
+      // project × env × channel — a later success to the same target clears it.
+      failures: currentFailureCount(deployments),
       canEdit: request.user!.permissions.includes('programs:write'),
     });
   });
@@ -609,12 +628,17 @@ export async function pageRoutes(app: FastifyInstance): Promise<void> {
       const down = health.filter((h) => !h.ok).map((h) => h.env);
       return reply.view('partials/health-panel.eta', { cells, configured: true, healthy: down.length === 0, down });
     }
+    // No /health endpoint (firmware / mobile / kit): "healthy" means the most recent
+    // CI/CD deploy to each env succeeded. A failed latest deploy marks that env down;
+    // a later successful deploy to the same env clears it (the rail is current state).
     const p = await platform.getProject(id);
     const cells = ENVS.map((e) => {
       const c = p?.rail?.[e];
-      return { env: e, ok: !!c, v: c?.v ?? '—', meta: c?.age ?? '' };
+      const failed = c?.state === 'failed';
+      return { env: e, ok: !!c && !failed, v: c?.v ?? '—', meta: failed ? 'last deploy failed' : (c?.age ?? '') };
     });
-    return reply.view('partials/health-panel.eta', { cells, configured: false, healthy: true, down: [] });
+    const down = ENVS.filter((e) => p?.rail?.[e]?.state === 'failed');
+    return reply.view('partials/health-panel.eta', { cells, configured: false, healthy: down.length === 0, down });
   });
 
   app.get('/cicd/deployments', { preHandler: requireAuth }, async (request, reply) => {

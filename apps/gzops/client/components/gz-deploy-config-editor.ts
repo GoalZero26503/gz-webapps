@@ -412,7 +412,9 @@ export class GzDeployConfigEditor extends LitElement {
           ${/* Artifact routing + health check don't apply to kits (they compose component
                artifacts + publish manifests per channel). */ isKit ? nothing : this.renderArtifacts()}
           ${isKit ? html`${this.m.kit ? this.renderKit() : html`<div class="card"><div class="card-body"><button type="button" class="btn sm" @click=${() => { this.m.kit = { host_ids: [], components: [], releases: [] }; this.bump(); }}>+ Add kit config</button></div></div>`}` : nothing}
-          ${isKit ? nothing : this.renderHealth()}`}
+          ${/* A live /health check only makes sense for an always-on service — cloud/backend.
+               For firmware/mobile/kit, "healthy" just means the latest CI/CD deploy succeeded. */
+            (this.projectType === 'cloud' || this.projectType === 'backend') ? this.renderHealth() : nothing}`}
       <div class="dc-savebar">
         <span class="grow"></span>
         <a class="btn btn-ghost" href=${this.cancelUrl}>Cancel</a>
