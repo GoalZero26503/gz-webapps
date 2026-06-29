@@ -31,7 +31,10 @@ export function timeAgo(iso: string): string {
 }
 
 export function typeBadge(type: string): string {
-  return `<span class="badge type">${esc(type)}</span>`;
+  // Per-type color (see .badge.type-* in styles.css): kit=gold, node=blue,
+  // mobile=orange, cloud/backend=lime. Slug guards against unexpected types.
+  const slug = String(type).replace(/[^a-z0-9-]/gi, '').toLowerCase();
+  return `<span class="badge type type-${esc(slug)}">${esc(type)}</span>`;
 }
 
 export function statusBadge(status: string): string {

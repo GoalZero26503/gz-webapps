@@ -573,7 +573,14 @@ table.tbl { width: 100%; border-collapse: collapse; }
 .tbl a { color: var(--gz-green); }
 
 /* ── Badges & dots ──────────────────────────────────────── */
-.badge.type { background: rgba(28, 154, 214, 0.12); color: var(--blue); font-family: var(--font-mono); font-weight: 500; }
+/* Project-type badges — one hue per type, tuned for the olive-charcoal theme
+   (bright text on a 14% tint of the same hue + a matching hairline). */
+.badge.type { font-family: var(--font-mono); font-weight: 700; background: var(--bg-elevated); color: var(--text-secondary); border-color: var(--border); }
+.badge.type-firmware-kit  { background: rgba(240, 178, 74, 0.14);  color: #f3c879; border-color: rgba(240, 178, 74, 0.34); }   /* gold */
+.badge.type-firmware-node { background: rgba(120, 190, 230, 0.14); color: #9cd0ef; border-color: rgba(120, 190, 230, 0.34); }  /* light blue */
+.badge.type-mobile        { background: rgba(240, 140, 60, 0.14);  color: #f4a86a; border-color: rgba(240, 140, 60, 0.34); } /* orange */
+.badge.type-cloud,
+.badge.type-backend       { background: var(--gz-green-dim); color: var(--gz-green); border-color: rgba(199, 230, 77, 0.34); } /* lime */
 .badge.ok { background: var(--gz-green-dim); color: var(--gz-green); }
 .badge.err { background: var(--red-dim); color: var(--red); }
 .badge.warn { background: rgba(255, 205, 29, 0.12); color: var(--yellow); }
