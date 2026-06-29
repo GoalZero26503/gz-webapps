@@ -267,7 +267,18 @@ export class GzDeployConfigEditor extends LitElement {
               : html`<span class="small faint">define pipelines above first</span>`}</div>
           </div>
           <div class="dc-sub"><span class="label-caps">Envs</span>
-            ${this.envToggles(a.envs ?? [], (e) => { a.envs = (a.envs ?? []).includes(e) ? (a.envs ?? []).filter((x) => x !== e) : [...(a.envs ?? []), e]; this.bump(); })}</div>
+            ${/* '*' (= all envs) is the default and renders every chip selected; toggling
+                  off one expands to the explicit list, and re-selecting all collapses back
+                  to '*' so the stored JSON keeps the wildcard. */ ''}
+            ${this.envToggles(
+              (a.envs ?? []).includes('*') ? [...this.allEnvs] : (a.envs ?? []),
+              (e) => {
+                const cur = (a.envs ?? []).includes('*') ? [...this.allEnvs] : [...(a.envs ?? [])];
+                const next = cur.includes(e) ? cur.filter((x) => x !== e) : [...cur, e];
+                a.envs = this.allEnvs.every((x) => next.includes(x)) ? ['*'] : next;
+                this.bump();
+              },
+            )}</div>
         </div>`)}
       <button type="button" class="btn sm" @click=${() => { this.m.artifacts = [...this.m.artifacts, { id: '', name_pattern: '', build_pipeline: '', deploy_pipelines: [], envs: ['*'] }]; this.bump(); }}>+ Add artifact</button>
     `, false, {

@@ -359,7 +359,12 @@ button.chip.chip-on { background: var(--gz-green-dim); border-color: var(--gz-gr
 .dc-card { border: 1px solid var(--border); border-radius: var(--radius-md); padding: 12px; margin-bottom: 12px; background: var(--bg-primary); }
 .dc-sub { margin: 10px 0; }
 .dc-sub .label-caps { display: block; margin-bottom: 6px; }
-.dc-savebar { display: flex; align-items: center; gap: 10px; padding: 14px 16px; position: sticky; bottom: 0; z-index: 20; background: var(--bg-elevated, var(--bg-base)); border-top: 1px solid var(--border, #2a2e2a); margin: 0 -16px -16px; box-shadow: 0 -8px 24px -8px rgba(0,0,0,0.6); }
+.dc-savebar { display: flex; align-items: center; gap: 10px; padding: 12px 16px; position: sticky; bottom: 12px; z-index: 20; margin-top: 20px; background: var(--bg-elevated, var(--bg-base)); border: 1px solid var(--border, #2a2e2a); border-radius: var(--radius-md); box-shadow: 0 10px 28px -8px rgba(0,0,0,0.6); }
+/* Scrim: scroll content fades into the page background as it passes behind the
+   floating save bar, instead of cutting off hard at the bar's top edge. */
+.dc-savebar::before { content: ''; position: absolute; left: 0; right: 0; bottom: calc(100% + 1px); height: 44px; pointer-events: none; background: linear-gradient(to top, var(--bg-root), transparent); }
+/* Skirt: covers scroll content in the gap below the floating bar (bottom: 12px). */
+.dc-savebar::after { content: ''; position: absolute; left: -1px; right: -1px; top: 100%; height: 16px; pointer-events: none; background: var(--bg-root); }
 .dc-savebar .dc-in { flex: 1; }
 
 /* ── Top nav: areas ─────────────────────────────────────── */
