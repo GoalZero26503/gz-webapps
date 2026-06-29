@@ -265,7 +265,8 @@
       </div></div>
   <% } %>
 
-  <% if (dc.health_check && it.project.type !== 'firmware-kit') { %>
+  <% /* Health check is only meaningful for an always-on service (cloud/backend). */ %>
+  <% if (dc.health_check && (it.project.type === 'cloud' || it.project.type === 'backend')) { %>
     <div class="card"><div class="card-head"><h2>Health check</h2></div><div class="card-body">
       <div class="kv"><span class="k">URL</span><span class="v mono"><%= dc.health_check.url %></span></div>
       <div class="kv"><span class="k">Environments</span><span class="v"><% var hcEnvs = dc.health_check.environments || it.ENVS; it.ENVS.forEach(function(e){ var on = hcEnvs.indexOf(e) !== -1; %><span class="chip <%= on ? 'chip-sel' : 'chip-off' %>"><% if (on) { %>✓ <% } %><%= e %></span><% }) %></span></div>
