@@ -2,14 +2,17 @@
 <% var depVer = (it.project.rail && it.project.rail.dev) ? it.project.rail.dev.v : 'latest'; %>
 <% var navFor = function (e) { return it.latestByEnv[e] ? '/cicd/deployments/' + it.latestByEnv[e] : null; }; %>
 <% var navForChannel = function (channel, e) { var m = it.latestByChannelEnv && it.latestByChannelEnv[channel]; return (m && m[e]) ? '/cicd/deployments/' + m[e] : null; }; %>
-<%~ /* A live kit cell opens a View/Promote/Un-publish menu. Un-publish is admin-only
-      beyond dev (deploys:create suffices on dev). */ '' %>
+<%~ /* A live kit cell opens a View / Promote / (Un-publish|Revert) menu. The
+      destructive/revert action is admin-only beyond dev (deploys:create suffices
+      on dev). `channel` here is the display LABEL — channelMeta maps it to the raw
+      pipeline key + whether the channel is versioned (Un-publish) or fixed (Revert). */ '' %>
 <% var cellMenuFor = function (channel, e, c) {
      if (!c || !it.canDeploy) return null;
      var m = it.latestByChannelEnv && it.latestByChannelEnv[channel];
      var id = m && m[e];
      if (!id) return null;
-     return { projectId: it.project.id, env: e, channel: channel, version: c.v, deploymentId: id, canUnpublish: (e === 'dev' ? it.canDeploy : !!it.isAdmin) };
+     var meta = (it.channelMeta && it.channelMeta[channel]) || { key: channel, versioned: true };
+     return { projectId: it.project.id, env: e, channelKey: meta.key, channelLabel: channel, versioned: !!meta.versioned, version: c.v, deploymentId: id, canUnpublish: (e === 'dev' ? it.canDeploy : !!it.isAdmin) };
    }; %>
 
 <div class="page-head">

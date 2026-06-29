@@ -249,11 +249,22 @@ export async function pageRoutes(app: FastifyInstance): Promise<void> {
     // every channel to the same record). Key by channelLabel(pipeline) so it lines
     // up with project.channels. deployments are newest-first → first match wins.
     const latestByChannelEnv: Record<string, Partial<Record<Env, string>>> = {};
+    // Per-channel metadata the cell menu needs, keyed by the SAME display label as
+    // project.channels: the raw pipeline `key` (what the platform matches on — the
+    // label is lossy) and whether it's a `versioned` channel (path_template carries
+    // {version} → Un-publish deletes a version; a fixed pointer offers Revert only).
+    const channelMeta: Record<string, { key: string; versioned: boolean }> = {};
     if (project.type === 'firmware-kit') {
       for (const d of deployments) {
         const ch = channelLabel(d.pipeline);
         const m = (latestByChannelEnv[ch] ??= {});
         if (!m[d.env]) m[d.env] = d.id;
+      }
+      const kitDc = await platform.getDeployConfig(project.id).catch(() => null);
+      for (const p of kitDc?.deploy_pipelines ?? []) {
+        if (p.plugin !== 'firmware-kit-deploy') continue;
+        const tmpl = (p.config as { path_template?: string } | undefined)?.path_template ?? '';
+        channelMeta[channelLabel(p.name)] = { key: p.name, versioned: tmpl.includes('{version}') };
       }
     }
     // Firmware-kit RELEASES tab: a kit version isn't a compiled build — it's a
@@ -359,6 +370,7 @@ export async function pageRoutes(app: FastifyInstance): Promise<void> {
       deployments,
       latestByEnv,
       latestByChannelEnv,
+      channelMeta,
       includingKits,
       kitReleases,
       artifacts: allArtifacts.slice(0, ARTIFACT_PAGE),
@@ -531,9 +543,10 @@ export async function pageRoutes(app: FastifyInstance): Promise<void> {
     },
   );
 
-  // BFF proxy for Un-publish (un-deploy): delete a kit deployment's published
-  // manifests. Baseline deploys:create; beyond dev it's admin-only (prod un-publish
-  // is high-blast-radius). Returns JSON for the cell-menu's fetch.
+  // BFF proxy for Un-publish (un-deploy): delete a versioned channel's manifests for
+  // a given version (the platform refuses fixed-pointer channels — those revert via a
+  // re-deploy). `channel` is the RAW pipeline name (not the display label). Baseline
+  // deploys:create; beyond dev it's admin-only (prod un-publish is high-blast-radius).
   app.post<{ Params: { id: string }; Body: { channel?: string; version?: string; environment?: string } }>(
     '/cicd/projects/:id/undeploy',
     { preHandler: requirePermission('deploys:create') },

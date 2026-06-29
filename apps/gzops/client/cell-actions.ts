@@ -1,7 +1,13 @@
 // Action menu for a deployed kit cell on the Status rail. Cells carry
 // data-cell-menu + data-* (see views/helpers.ts `cell()`). Clicking one opens a
-// small modal: View · Promote · Un-publish. Un-publish is a two-step confirm and
-// is only offered when the cell is data-can-unpublish="1" (admin beyond dev).
+// small modal: View · Promote · and a channel-kind-specific action:
+//   • VERSIONED channel ({version} manifests, e.g. app-release) → Un-publish: a
+//     two-step confirm that deletes this version's manifests (devices fall back to
+//     the previous version). The build is kept; re-deployable.
+//   • FIXED-POINTER channel (warehouse/manual) → Revert: its manifest must always
+//     exist for the factory, so we never delete — instead deep-link to the deploy
+//     flow to re-publish an older version.
+// The destructive/revert action shows only when data-can-unpublish="1" (admin beyond dev).
 function esc(s: string): string {
   const d = document.createElement('div');
   d.textContent = s;
@@ -16,11 +22,22 @@ function openMenu(ds: DOMStringMap): void {
   closeMenu();
   const project = ds.project ?? '';
   const env = ds.env ?? '';
-  const channel = ds.channel ?? '';
+  const channelKey = ds.channelKey ?? '';
+  const channelLabel = ds.channelLabel ?? channelKey;
+  const versioned = ds.versioned === '1';
   const version = ds.version ?? '';
   const id = ds.deploymentId ?? '';
-  const canUnpublish = ds.canUnpublish === '1';
-  const head = `<div class="cell-menu-head"><span class="label-caps">${esc(channel)} → ${esc(env)}</span><span class="mono">v${esc(version)}</span></div>`;
+  const canAct = ds.canUnpublish === '1';
+  const buildsHref = `/cicd/projects/${encodeURIComponent(project)}?tab=builds`;
+  const head = `<div class="cell-menu-head"><span class="label-caps">${esc(channelLabel)} → ${esc(env)}</span><span class="mono">v${esc(version)}</span></div>`;
+
+  // Versioned → Un-publish (destructive, in-modal confirm). Fixed-pointer → Revert
+  // (re-deploy via the builds tab; deleting the factory pointer is never allowed).
+  const action = !canAct
+    ? ''
+    : versioned
+      ? '<button type="button" class="btn btn-danger" data-step-confirm>⌫ Un-publish</button>'
+      : `<a class="btn" href="${buildsHref}" title="Re-deploy an older version (the factory pointer can't be deleted)">↩ Revert…</a>`;
 
   const overlay = document.createElement('div');
   overlay.id = 'cell-menu-overlay';
@@ -28,8 +45,8 @@ function openMenu(ds: DOMStringMap): void {
   overlay.innerHTML = `<div class="gz-modal cell-menu" role="dialog" aria-modal="true">${head}
     <div class="cell-menu-body">
       <a class="btn" href="/cicd/deployments/${encodeURIComponent(id)}">View deployment</a>
-      <a class="btn" href="/cicd/projects/${encodeURIComponent(project)}?tab=builds" title="Open Kits & Releases to deploy this version onward">Promote…</a>
-      ${canUnpublish ? '<button type="button" class="btn btn-danger" data-step-confirm>⌫ Un-publish</button>' : ''}
+      <a class="btn" href="${buildsHref}" title="Open Kits & Releases to deploy this version onward">Promote…</a>
+      ${action}
     </div>
     <div class="cell-menu-foot"><button type="button" class="btn btn-ghost" data-close>Cancel</button></div>
   </div>`;
@@ -39,7 +56,7 @@ function openMenu(ds: DOMStringMap): void {
   const toConfirm = (): void => {
     card.innerHTML = `${head}
       <div class="cell-menu-body">
-        <p class="small">Un-publish <span class="mono">v${esc(version)}</span> from <b>${esc(channel)} · ${esc(env)}</b>? This deletes the deployed manifests so devices on this channel stop seeing the firmware. The build is kept — you can re-deploy it.</p>
+        <p class="small">Un-publish <span class="mono">v${esc(version)}</span> from <b>${esc(channelLabel)} · ${esc(env)}</b>? This deletes this version's manifests so devices on this channel fall back to the previous version. The build is kept — you can re-deploy it.</p>
       </div>
       <div class="cell-menu-foot">
         <button type="button" class="btn btn-ghost" data-close>Cancel</button>
@@ -54,7 +71,7 @@ function openMenu(ds: DOMStringMap): void {
         const res = await fetch(`/cicd/projects/${encodeURIComponent(project)}/undeploy`, {
           method: 'POST',
           headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({ channel, version, environment: env }),
+          body: JSON.stringify({ channel: channelKey, version, environment: env }),
         });
         if (!res.ok) {
           const j = (await res.json().catch(() => ({}))) as { error?: string };
