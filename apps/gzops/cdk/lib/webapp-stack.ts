@@ -49,9 +49,20 @@ const appDir = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', '..
 const repoRoot = path.join(appDir, '..', '..');
 
 // Build identity baked into the Lambda env, surfaced in the sidebar footer.
-// Version from the app's package.json; sha from the CI commit (GITHUB_SHA) or
-// the local working tree at deploy time.
-const appVersion = JSON.parse(readFileSync(path.join(appDir, 'package.json'), 'utf8')).version as string;
+// Major.minor come from the app's package.json; the PATCH bumps with every deploy —
+// the CI run number in Actions (the deploy job is a shallow checkout, so commit
+// count isn't reliable there), falling back to local commit count, then the
+// package.json patch. sha from the CI commit (GITHUB_SHA) or the local working tree.
+const pkgVersion = JSON.parse(readFileSync(path.join(appDir, 'package.json'), 'utf8')).version as string;
+const buildPatch = ((): string => {
+  if (process.env.GITHUB_RUN_NUMBER) return process.env.GITHUB_RUN_NUMBER;
+  try {
+    return execSync('git rev-list --count HEAD', { cwd: repoRoot }).toString().trim();
+  } catch {
+    return pkgVersion.split('.')[2] ?? '0';
+  }
+})();
+const appVersion = `${pkgVersion.split('.').slice(0, 2).join('.')}.${buildPatch}`;
 const gitSha = ((): string => {
   const ci = process.env.GITHUB_SHA?.slice(0, 8);
   if (ci) return ci;
