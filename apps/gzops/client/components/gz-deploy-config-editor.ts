@@ -143,6 +143,15 @@ export class GzDeployConfigEditor extends LitElement {
           throw new Error('environments and deploy_pipelines must be arrays');
         }
       } else {
+        // Block a kit composition that references a component with no OTA image —
+        // it could never deploy that slot.
+        const nodes = this.nodeProjects;
+        const offenders = (this.m.kit?.components ?? [])
+          .filter((c) => c.project && nodes.find((n) => n.id === c.project)?.hasOta === false)
+          .map((c) => c.name || c.project);
+        if (offenders.length) {
+          throw new Error(`These components have no OTA image (role: deployable) in their project — define one first: ${offenders.join(', ')}`);
+        }
         body = this.body();
       }
       const res = await fetch(this.saveUrl, {
@@ -288,7 +297,7 @@ export class GzDeployConfigEditor extends LitElement {
   }
 
   // ── Kit configuration (topology + component schema) ───────
-  private get nodeProjects(): { id: string; name: string }[] {
+  private get nodeProjects(): { id: string; name: string; hasOta?: boolean }[] {
     try { const a = JSON.parse(this.nodeProjectsAttr); return Array.isArray(a) ? a : []; } catch { return []; }
   }
 
@@ -311,7 +320,13 @@ export class GzDeployConfigEditor extends LitElement {
         'Each node-firmware slot in the kit and the project that supplies its binary. Versions are chosen per release, not here.',
         html`<b>Set</b> — <b>iNode</b>: a board inside the host that derives its node ID from the host (use a glob slot). <b>xNode</b>: a self-contained accessory with its own SKU (use explicit node IDs).<br/>
         <b>Slots</b> — comma-separated. For iNodes use a glob like <span class="mono">A*-1</span>: the <span class="mono">*</span> fills in the host's own board variant, so on host <span class="mono">H-37500-<b>A20</b>-…</span> the slot <span class="mono">A*-1</span> resolves to node <span class="mono">N-37500-A20-1</span> (a host without that board just skips it). For xNodes list the full node ID(s) verbatim — e.g. <span class="mono">N-23110-A2-1</span> — no wildcards; add one entry per hardware rev you want to advertise.`)}
-      ${(kit.components ?? []).map((c, i) => html`
+      ${(kit.components ?? []).map((c, i) => {
+        // A component can only OTA-deploy if its node project declares an OTA image
+        // (role='deployable'). Warn when a known node project has none — the kit
+        // would have nothing to copy to gz-{env}-firmware-images for this slot.
+        const np = nodes.find((n) => n.id === c.project);
+        const missingOta = !!c.project && !!np && np.hasOta === false;
+        return html`
         <div class="dc-row">
           <input class="dc-in" placeholder="label (PCU)" .value=${c.name} @input=${(ev: Event) => { c.name = (ev.target as HTMLInputElement).value; }} />
           <select class="dc-in mono" @change=${(ev: Event) => { c.project = (ev.target as HTMLSelectElement).value; this.bump(); }}>
@@ -326,10 +341,12 @@ export class GzDeployConfigEditor extends LitElement {
           </div>
           <input class="dc-in mono" placeholder=${(c.set ?? 'iNode') === 'xNode' ? 'N-23110-A2-1' : 'A*-1'} .value=${(c.slots ?? []).join(', ')}
             @input=${(ev: Event) => { c.slots = (ev.target as HTMLInputElement).value.split(',').map((s) => s.trim()).filter(Boolean); }} />
-          <input class="dc-in mono" style="max-width:130px;" placeholder="artifact (opt.)" title="build_pipeline/variant token for multi-variant node projects (e.g. y300-hp). Leave blank for single-artifact projects." .value=${c.artifact ?? ''}
+          <input class="dc-in mono" style="max-width:130px;" placeholder="variant (opt.)" title="build_pipeline/variant token for multi-variant node projects (e.g. y300-hp). Leave blank for single-artifact projects." .value=${c.artifact ?? ''}
             @input=${(ev: Event) => { const v = (ev.target as HTMLInputElement).value.trim(); c.artifact = v || undefined; }} />
           <button type="button" class="btn sm ghost" @click=${() => { kit.components!.splice(i, 1); this.bump(); }}>✕</button>
-        </div>`)}
+        </div>
+        ${missingOta ? html`<div class="callout callout-error" style="margin:-4px 0 8px;">⚠ <b>${np?.name ?? c.project}</b> has no OTA image artifact (<span class="mono">role: deployable</span>) — a kit deploy would have nothing to flash for this component. Define an OTA image in that project's Deploy Config.</div>` : nothing}`;
+      })}
       <button type="button" class="btn sm" @click=${() => { kit.components = [...(kit.components ?? []), { name: '', project: '', set: 'iNode', slots: [] }]; this.bump(); }}>+ Add component</button>
 
       <details style="margin-top:18px;">

@@ -371,11 +371,19 @@ export async function pageRoutes(app: FastifyInstance): Promise<void> {
       // Every firmware-node project is selectable as a kit component source. Sourced
       // from the full project list (cached) — NOT `projects`, which here is just the
       // kit + its current components and would leave the editor dropdown empty.
+      // `hasOta` = the project declares a role='deployable' (OTA image) artifact, so
+      // the kit editor can warn when a chosen component can't actually be deployed.
       nodeProjectsJson: JSON.stringify(
         project.type === 'firmware-kit'
-          ? (await platform.listProjects())
-              .filter((p) => p.type === 'firmware-node')
-              .map((p) => ({ id: p.id, name: p.name }))
+          ? await Promise.all(
+              (await platform.listProjects())
+                .filter((p) => p.type === 'firmware-node')
+                .map(async (p) => {
+                  const dc = await platform.getDeployConfig(p.id).catch(() => null);
+                  const hasOta = (dc?.artifacts ?? []).some((a) => a.role === 'deployable');
+                  return { id: p.id, name: p.name, hasOta };
+                }),
+            )
           : [],
       ),
       canDeploy: request.user!.permissions.includes('deploys:create'),

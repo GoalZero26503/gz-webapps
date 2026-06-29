@@ -194,6 +194,10 @@ export interface ArtifactDefinition {
   build_pipeline: string;
   deploy_pipelines: string[];
   envs?: string[];
+  /** 'deployable' = OTA firmware image flashed to the device; 'bundle' = packaged
+   *  bundle attached to the kit GitHub release. */
+  role?: 'deployable' | 'bundle';
+  type?: string;
 }
 
 /** Per-slot firmware versions for one kit release (slot id → version). */
