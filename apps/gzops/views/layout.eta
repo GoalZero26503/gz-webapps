@@ -80,11 +80,11 @@
       <% }) %>
       <div class="spacer"></div>
       <div class="foot">
+        <div class="foot-line foot-stage"><%= it.stage %></div>
         <div class="foot-line"><span class="foot-k">gzops</span> <%= it.version %> · <%= it.gitSha %></div>
         <% if (it.backend) { %>
           <div class="foot-line"><span class="foot-k">api</span> <%= it.backend.version || '?' %> · <%= it.backend.gitSha || '?' %></div>
         <% } %>
-        <div class="foot-line foot-stage"><%= it.stage %></div>
       </div>
     </aside>
     <main class="main">
