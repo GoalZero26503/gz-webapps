@@ -5,12 +5,17 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title><%= it.title ? `${it.title} — ` : '' %>GZOps</title>
   <link rel="icon" href="/favicon.ico" sizes="32x32" />
+  <%~ /* Field-panel type: Saira Condensed (display) · Saira (body) · Space Mono (labels). */ '' %>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Saira+Condensed:wght@500;600;700&family=Saira:wght@400;500;600&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="<%= it.assetUrl('/styles.css') %>" />
   <link rel="stylesheet" href="/vendor/lucide/lucide.css" />
   <script src="/vendor/htmx.min.js" defer></script>
   <script type="module" src="<%= it.assetUrl('/assets/app.js') %>"></script>
 </head>
 <body>
+  <div class="charge-bar" aria-hidden="true"></div>
   <% if (it.user && it.area) { %>
   <input type="checkbox" id="navToggle" class="nav-toggle-cb" hidden />
   <header class="topnav">
