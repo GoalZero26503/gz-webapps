@@ -377,6 +377,13 @@ class PlatformClient {
     return this.postJson(`/projects/${encodeURIComponent(projectId)}/undeploy`, { ...target, by });
   }
 
+  /** Revert a VERSIONED channel (app-release) to an older version by deleting every
+   *  manifest ahead of the target (the only way back on a newest-wins channel). */
+  async revertChannel(projectId: string, target: { channel: string; target_version: string; environment: string }, by?: string): Promise<{ reverted: boolean; now_live?: string | null; removed?: number; deleted_versions?: string[] }> {
+    if (this.isFake) return { reverted: true, removed: 0 };
+    return this.postJson(`/projects/${encodeURIComponent(projectId)}/revert-channel`, { ...target, by });
+  }
+
   /**
    * Reconcile gzops version-locks with the repo's actual GitHub Releases: import
    * pre-existing releases (provenance-only) and self-heal failed publishes.

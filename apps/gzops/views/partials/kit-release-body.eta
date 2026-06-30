@@ -54,8 +54,11 @@
                 <% } else if (s.liveV && s.versioned && s.ahead && stageable) { %>
                   <%~ /* versioned, newer than live → stage forward */ '' %>
                   <label class="stage-cell" title="Deploy v<%= it.r.version %> — newer than live v<%= s.liveV %>"><input type="checkbox" name="target" value="<%= c.key %>|<%= e %>" /><span aria-hidden="true">+</span></label>
+                <% } else if (s.liveV && s.versioned && !s.ahead && stageable && (e === 'dev' || it.isAdmin)) { %>
+                  <%~ /* versioned & behind live → revert = delete every version ahead so this one becomes newest */ '' %>
+                  <button type="button" class="cell-revert" data-revert-project="<%= it.projectId %>" data-revert-channel="<%= c.key %>" data-revert-channel-label="<%= c.name %>" data-revert-version="<%= it.r.version %>" data-revert-env="<%= e %>" data-revert-live="<%= s.liveV %>" title="Revert to v<%= it.r.version %> — deletes v<%= s.liveV %> and any newer (v<%= s.liveV %> is live now)">↩ <%= s.liveV %></button>
                 <% } else if (s.liveV) { %>
-                  <%~ /* another version live; can't simply re-deploy (versioned & behind, or not stageable) */ '' %>
+                  <%~ /* another version live; not revertable from here (not stageable, or no permission) */ '' %>
                   <span class="faint small mono" title="v<%= s.liveV %> is live here<%= s.versioned ? ' — delete newer versions to revert to v' + it.r.version : '' %>"><%= s.liveV %></span>
                 <% } else if (stageable) { %>
                   <label class="stage-cell" title="Deploy <%= c.name %> → <%= e %>"><input type="checkbox" name="target" value="<%= c.key %>|<%= e %>" /><span aria-hidden="true">+</span></label>
