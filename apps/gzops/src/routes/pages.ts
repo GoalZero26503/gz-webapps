@@ -593,6 +593,29 @@ export async function pageRoutes(app: FastifyInstance): Promise<void> {
     },
   );
 
+  // BFF proxy for Revert (versioned/app-release channels): delete every manifest ahead
+  // of the target so the target becomes newest/live. `channel` is the RAW pipeline name.
+  // Same gating as un-publish — admin-only beyond dev (destructive).
+  app.post<{ Params: { id: string }; Body: { channel?: string; target_version?: string; environment?: string } }>(
+    '/cicd/projects/:id/revert-channel',
+    { preHandler: requirePermission('deploys:create') },
+    async (request, reply) => {
+      const channel = request.body?.channel;
+      const target = request.body?.target_version;
+      const env = request.body?.environment;
+      if (!channel || !target || !env) return reply.code(400).send({ error: 'channel, target_version and environment are required' });
+      if (env !== 'dev' && request.user!.role !== 'admin') {
+        return reply.code(403).send({ error: `Reverting in ${env} requires an admin role.` });
+      }
+      try {
+        const result = await platform.revertChannel(request.params.id, { channel, target_version: target, environment: env }, request.user!.email);
+        return reply.send(result);
+      } catch (err) {
+        return reply.code(502).send({ error: err instanceof Error ? err.message : 'revert failed' });
+      }
+    },
+  );
+
   // BFF proxy for Sync from GitHub — reconcile gzops version-locks with the repo's
   // actual GitHub Releases (import pre-existing ones; self-heal failed publishes).
   // Returns a small summary line + an HX-Refresh so the list reflects the new state.

@@ -853,3 +853,9 @@ details.collapse[open] summary::before { transform: rotate(90deg); }
 .stage-cell:has(input:checked) { background: var(--gz-green); border: 1px solid transparent; color: var(--text-inverse); font-weight: 700; }
 .stage-cell:has(input:checked) span::before { content: '✓'; }
 .stage-cell:has(input:focus-visible) { outline: 2px solid var(--border-focus); outline-offset: 1px; }
+
+/* Matrix cell whose row version is BEHIND what's live on a versioned channel — click
+   to revert (delete versions ahead). Reads as "v{live} is live; ↩ to go back". */
+.cell-revert { display: inline-flex; align-items: center; gap: 3px; padding: 2px 7px; border: 1px solid var(--yellow, #d6b34a); border-radius: var(--radius-sm); background: transparent; color: var(--yellow, #d6b34a); font-family: var(--font-mono, monospace); font-size: 11px; line-height: 1.4; cursor: pointer; transition: all 0.12s ease; }
+.cell-revert:hover { background: var(--yellow, #d6b34a); color: var(--text-inverse, #15160f); }
+.cell-revert:focus-visible { outline: 2px solid var(--border-focus); outline-offset: 1px; }
