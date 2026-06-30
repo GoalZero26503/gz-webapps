@@ -23,6 +23,18 @@
   <% } %>
 
   <% var scope = it.deployScope || 'none'; var interactive = scope === 'all' || scope === 'dev'; %>
+  <%~ /* Per cell, reality (env-state) not history: isLive = this version is the one
+        currently deployed there. liveV = whatever IS live (may be another version).
+        ahead = this version is newer than live (stageable forward) vs behind (needs
+        delete-ahead on a versioned channel). histId links the live deployment. */ '' %>
+  <% var cellState = function (c, e) {
+       var liveV = it.channelLive && it.channelLive[c.key] ? it.channelLive[c.key][e] : null;
+       var versioned = it.channelVersioned ? !!it.channelVersioned[c.key] : true;
+       var thisIdx = it.releaseOrder ? it.releaseOrder.indexOf(it.r.version) : -1;
+       var liveIdx = (liveV && it.releaseOrder) ? it.releaseOrder.indexOf(liveV) : 9999;
+       return { liveV: liveV, isLive: !!liveV && liveV === it.r.version, versioned: versioned,
+                ahead: thisIdx >= 0 && thisIdx < liveIdx, histId: c.cells[e] };
+     }; %>
   <div class="label-caps" style="margin-bottom:6px;">Deployed to<% if (interactive) { %> <span class="small faint" style="text-transform:none;letter-spacing:0;">· check empty cells to stage a deploy<% if (scope === 'dev') { %> (dev only — cut a release to deploy further)<% } %></span><% } %></div>
 
   <% if (interactive) { %>
@@ -32,8 +44,25 @@
       <table class="tbl"><thead><tr><th>Channel</th><% it.ENVS.forEach(function (e) { %><th style="text-align:center;"><%= e %></th><% }) %></tr></thead><tbody>
         <% it.r.channels.forEach(function (c) { %>
           <tr><td><%= c.name %></td>
-            <% it.ENVS.forEach(function (e) { var stageable = scope === 'all' || e === 'dev'; %>
-              <td style="text-align:center;"><% if (c.cells[e]) { %><a class="badge ok" href="/cicd/deployments/<%= c.cells[e] %>" title="Live — view deployment">✓</a><% } else if (stageable) { %><label class="stage-cell" title="Deploy <%= c.name %> → <%= e %>"><input type="checkbox" name="target" value="<%= c.key %>|<%= e %>" /><span aria-hidden="true">+</span></label><% } else { %><span class="faint" style="opacity:.3;" title="Cut a release to deploy beyond dev">🔒</span><% } %></td>
+            <% it.ENVS.forEach(function (e) { var stageable = scope === 'all' || e === 'dev'; var s = cellState(c, e); %>
+              <td style="text-align:center;">
+                <% if (s.isLive) { %>
+                  <% if (s.histId) { %><a class="badge ok" href="/cicd/deployments/<%= s.histId %>" title="Live now — v<%= it.r.version %>">✓</a><% } else { %><span class="badge ok" title="Live now — v<%= it.r.version %>">✓</span><% } %>
+                <% } else if (s.liveV && !s.versioned && stageable) { %>
+                  <%~ /* fixed pointer, another version live → re-target by re-deploying this one */ '' %>
+                  <label class="stage-cell" title="Re-deploy v<%= it.r.version %> here — v<%= s.liveV %> is live now"><input type="checkbox" name="target" value="<%= c.key %>|<%= e %>" /><span aria-hidden="true">↩</span></label>
+                <% } else if (s.liveV && s.versioned && s.ahead && stageable) { %>
+                  <%~ /* versioned, newer than live → stage forward */ '' %>
+                  <label class="stage-cell" title="Deploy v<%= it.r.version %> — newer than live v<%= s.liveV %>"><input type="checkbox" name="target" value="<%= c.key %>|<%= e %>" /><span aria-hidden="true">+</span></label>
+                <% } else if (s.liveV) { %>
+                  <%~ /* another version live; can't simply re-deploy (versioned & behind, or not stageable) */ '' %>
+                  <span class="faint small mono" title="v<%= s.liveV %> is live here<%= s.versioned ? ' — delete newer versions to revert to v' + it.r.version : '' %>"><%= s.liveV %></span>
+                <% } else if (stageable) { %>
+                  <label class="stage-cell" title="Deploy <%= c.name %> → <%= e %>"><input type="checkbox" name="target" value="<%= c.key %>|<%= e %>" /><span aria-hidden="true">+</span></label>
+                <% } else { %>
+                  <span class="faint" style="opacity:.3;" title="Cut a release to deploy beyond dev">🔒</span>
+                <% } %>
+              </td>
             <% }) %>
           </tr>
         <% }) %>
@@ -45,8 +74,8 @@
     <table class="tbl"><thead><tr><th>Channel</th><% it.ENVS.forEach(function (e) { %><th style="text-align:center;"><%= e %></th><% }) %></tr></thead><tbody>
       <% it.r.channels.forEach(function (c) { %>
         <tr><td><%= c.name %></td>
-          <% it.ENVS.forEach(function (e) { %>
-            <td style="text-align:center;"><% if (c.cells[e]) { %><a class="badge ok" href="/cicd/deployments/<%= c.cells[e] %>" title="View deployment">✓</a><% } else { %><span class="faint" style="opacity:.35;">·</span><% } %></td>
+          <% it.ENVS.forEach(function (e) { var s = cellState(c, e); %>
+            <td style="text-align:center;"><% if (s.isLive) { %><% if (s.histId) { %><a class="badge ok" href="/cicd/deployments/<%= s.histId %>" title="Live now">✓</a><% } else { %><span class="badge ok" title="Live now">✓</span><% } %><% } else if (s.liveV) { %><span class="faint small mono" title="v<%= s.liveV %> is live here"><%= s.liveV %></span><% } else { %><span class="faint" style="opacity:.35;">·</span><% } %></td>
           <% }) %>
         </tr>
       <% }) %>
