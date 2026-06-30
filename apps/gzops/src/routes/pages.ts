@@ -254,6 +254,14 @@ export async function pageRoutes(app: FastifyInstance): Promise<void> {
     // label is lossy) and whether it's a `versioned` channel (path_template carries
     // {version} → Un-publish deletes a version; a fixed pointer offers Revert only).
     const channelMeta: Record<string, { key: string; versioned: boolean }> = {};
+    // The Kits & Releases matrix marks a cell ✓ ONLY when this row's version is the one
+    // CURRENTLY live there (env-state truth), not merely ever-deployed (history). These
+    // maps are keyed by the raw pipeline name (== KitReleaseRow channel `key`):
+    //   channelLive[key][env]      = the version currently deployed there (or absent)
+    //   channelVersioned[key]      = true for versioned channels ({version} manifests,
+    //                                e.g. app-release), false for fixed pointers.
+    const channelLive: Record<string, Partial<Record<Env, string>>> = {};
+    const channelVersioned: Record<string, boolean> = {};
     if (project.type === 'firmware-kit') {
       for (const d of deployments) {
         const ch = channelLabel(d.pipeline);
@@ -264,7 +272,16 @@ export async function pageRoutes(app: FastifyInstance): Promise<void> {
       for (const p of kitDc?.deploy_pipelines ?? []) {
         if (p.plugin !== 'firmware-kit-deploy') continue;
         const tmpl = (p.config as { path_template?: string } | undefined)?.path_template ?? '';
-        channelMeta[channelLabel(p.name)] = { key: p.name, versioned: tmpl.includes('{version}') };
+        const versioned = tmpl.includes('{version}');
+        channelMeta[channelLabel(p.name)] = { key: p.name, versioned };
+        channelVersioned[p.name] = versioned;
+        // project.channels (live env-state) is keyed by the display label.
+        const rail = project.channels?.[channelLabel(p.name)];
+        if (rail) {
+          const live: Partial<Record<Env, string>> = {};
+          for (const e of ENVS) { const v = rail[e]?.v; if (v && v !== '—') live[e] = v; }
+          channelLive[p.name] = live;
+        }
       }
     }
     // Firmware-kit RELEASES tab: a kit version isn't a compiled build — it's a
@@ -354,6 +371,10 @@ export async function pageRoutes(app: FastifyInstance): Promise<void> {
       // version sort floats ancient releases to the top and looks like a gap.
       kitReleases.sort((a, b) => (b.at || '').localeCompare(a.at || ''));
     }
+    // Display order (newest-first) for relative-recency checks in the matrix: a lower
+    // index is newer. Used to tell "ahead of live" (stage forward) from "behind live"
+    // (needs delete-ahead) on versioned channels.
+    const releaseOrder = kitReleases.map((r) => r.version);
 
     // BUILDS artifacts (non-kit) and deploy-config (CONFIG tab) are fetched lazily.
     const allArtifacts = tab === 'builds' && project.type !== 'firmware-kit' ? await platform.listArtifacts(project) : [];
@@ -371,6 +392,9 @@ export async function pageRoutes(app: FastifyInstance): Promise<void> {
       latestByEnv,
       latestByChannelEnv,
       channelMeta,
+      channelLive,
+      channelVersioned,
+      releaseOrder,
       includingKits,
       kitReleases,
       artifacts: allArtifacts.slice(0, ARTIFACT_PAGE),
