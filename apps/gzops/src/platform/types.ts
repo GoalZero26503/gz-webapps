@@ -112,6 +112,9 @@ export interface VersionLock {
   release_notes?: { short?: string; full?: string };
   /** firmware-kit: per-component release results from the cut cascade (Phase E). */
   component_releases?: ComponentReleaseStatus[];
+  /** firmware-kit: frozen composition (component name → version), recorded at cut —
+   *  including for imported releases enriched from their existing manifest. */
+  component_versions?: Record<string, string>;
 }
 
 /** A composed firmware-kit release (one kit version) for the RELEASES tab. */
