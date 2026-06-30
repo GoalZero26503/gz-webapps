@@ -678,7 +678,10 @@ export async function pageRoutes(app: FastifyInstance): Promise<void> {
           errors.push(`${env}: ${err instanceof Error ? err.message : 'failed'}`);
         }
       }
-      if (errors.length) return reply.code(502).type('text/html').send(`<div class="small" style="color:var(--red);">Some deploys failed — ${escHtml(errors.join('; '))}</div>`);
+      // Return 200 (not 5xx) so HTMX swaps the message into #deploy-submit-msg — a
+      // rejected deploy (e.g. a version with no recorded component versions) is a
+      // user-facing validation outcome, not a server fault, and must be readable.
+      if (errors.length) return reply.type('text/html').send(`<span style="color:var(--red);">Couldn’t deploy — ${escHtml(errors.join('; '))}</span>`);
       // HX-Redirect drives the client-side navigation. Send a NON-empty body with an
       // explicit content-type — an empty 200 body gets malformed over HTTP/2 by the
       // Lambda-URL/CloudFront path (ERR_HTTP2_PROTOCOL_ERROR), aborting the redirect.

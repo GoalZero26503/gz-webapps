@@ -22,7 +22,10 @@
     </div>
   <% } %>
 
-  <% var scope = it.deployScope || 'none'; var interactive = scope === 'all' || scope === 'dev'; %>
+  <%~ /* A version with no recorded component versions can't be composed into a
+        manifest — deploying it would publish an empty one (platform rejects it). So
+        only offer the interactive deploy grid when components are known. */ '' %>
+  <% var scope = it.deployScope || 'none'; var deployable = (it.r.components || []).length > 0; var interactive = (scope === 'all' || scope === 'dev') && deployable; %>
   <%~ /* Reality, not history. Per channel×env slot: isLive = THIS version is the one
         currently deployed there → "v ✓" (green). Otherwise the slot shows whatever IS
         live (liveV) with a ↗ — click to queue a deploy of THIS version there. No
@@ -32,6 +35,9 @@
        return { liveV: liveV, isLive: !!liveV && liveV === it.r.version, histId: c.cells[e] };
      }; %>
   <div class="label-caps" style="margin-bottom:6px;">Deployed to<% if (interactive) { %> <span class="small faint" style="text-transform:none;letter-spacing:0;">· click a slot to queue it<% if (scope === 'dev') { %> (dev only — cut a release to deploy further)<% } %></span><% } %></div>
+  <% if ((scope === 'all' || scope === 'dev') && !deployable) { %>
+    <div class="small" style="color:var(--yellow);background:rgba(255,205,29,.08);border:1px solid rgba(255,205,29,.25);border-radius:6px;padding:8px 11px;margin-bottom:8px;">This version has no recorded component versions, so it can’t be deployed through gzops (it would publish an empty firmware manifest). Cut a release whose components are tracked.</div>
+  <% } %>
 
   <% if (interactive) { %>
     <form hx-post="/cicd/projects/<%= it.projectId %>/kit-deploy/review" hx-target="#deploy-review-<%= rid %>" hx-swap="innerHTML">
