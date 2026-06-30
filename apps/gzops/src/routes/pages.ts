@@ -715,16 +715,51 @@ export async function pageRoutes(app: FastifyInstance): Promise<void> {
     return reply.view('partials/health-panel.eta', { cells, configured: false, healthy: down.length === 0, down });
   });
 
-  app.get('/cicd/deployments', { preHandler: requireAuth }, async (request, reply) => {
-    const projects = await platform.listProjects();
-    const deployments = await platform.listDeploymentsAcross(projects.map((p) => p.id));
-    return reply.view('deployments.eta', {
-      ...(await chrome(request, 'cicd', 'deployments')),
-      title: 'Deployments',
-      deployments,
-      projectsById: byId(projects),
-    });
-  });
+  app.get<{ Querystring: { project?: string; env?: string; channel?: string; status?: string; q?: string } }>(
+    '/cicd/deployments',
+    { preHandler: requireAuth },
+    async (request, reply) => {
+      const f = {
+        project: request.query.project?.trim() || '',
+        env: request.query.env?.trim() || '',
+        channel: request.query.channel?.trim() || '',
+        status: request.query.status?.trim() || '',
+        q: request.query.q?.trim() || '',
+      };
+      const projects = await platform.listProjects();
+      const byProj = byId(projects);
+      // Scope the fetch to one project when filtered (cheaper + deeper history); else
+      // merge across all. Pull a generous window so the history view is useful.
+      const all = f.project
+        ? await platform.listDeployments({ projectId: f.project, limit: 250 })
+        : await platform.listDeploymentsAcross(projects.map((p) => p.id), 250);
+      // Facet options come from the pre-filter set so the dropdowns stay populated.
+      const channelOptions = [...new Set(all.map((d) => d.pipeline).filter(Boolean))].sort();
+      const statusOptions = [...new Set(all.map((d) => d.status).filter(Boolean))].sort();
+      const ql = f.q.toLowerCase();
+      const deployments = all.filter(
+        (d) =>
+          (!f.env || d.env === f.env) &&
+          (!f.channel || d.pipeline === f.channel) &&
+          (!f.status || d.status === f.status) &&
+          (!ql ||
+            [d.version, d.by, d.note, byProj[d.projectId]?.name, d.projectId].some((x) =>
+              (x ?? '').toLowerCase().includes(ql),
+            )),
+      );
+      return reply.view('deployments.eta', {
+        ...(await chrome(request, 'cicd', 'deployments')),
+        title: 'Deployments',
+        deployments,
+        projectsById: byProj,
+        projectList: [...projects].sort((a, b) => a.name.localeCompare(b.name)),
+        filters: f,
+        channelOptions,
+        statusOptions,
+        total: all.length,
+      });
+    },
+  );
 
   app.get<{ Params: { id: string } }>('/cicd/deployments/:id', { preHandler: requireAuth }, async (request, reply) => {
     const deployment = await platform.getDeployment(request.params.id);

@@ -88,7 +88,7 @@
 
   <% /* firmware-node has no standalone deploys, so its deploy-activity table is always empty — omit it. */ %>
   <% if (it.project.type !== 'firmware-node') { %>
-  <div class="card"><div class="card-head"><h2>Recent activity</h2><span class="grow"></span><span class="small faint">deployment events · newest first</span></div><div class="card-body flush">
+  <div class="card"><div class="card-head"><h2>Recent activity</h2><span class="grow"></span><a class="small" href="/cicd/deployments?project=<%= it.project.id %>" title="Full deployment history for this project">full history →</a></div><div class="card-body flush">
     <table class="tbl"><thead><tr><th>Status</th><th>Version</th><th>Env</th><th>Pipeline</th><th>By</th><th>When</th></tr></thead><tbody>
       <% if (!it.deployments.length) { %><tr><td colspan="6"><div class="empty-state">No deployments yet</div></td></tr><% } %>
       <% it.deployments.forEach(function (d) { %>

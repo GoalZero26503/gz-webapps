@@ -1,8 +1,56 @@
 <% layout('layout') %>
 <div class="page-head"><div><h1>Deployments</h1><div class="sub">Every deploy is a recorded, attributable action</div></div></div>
+
+<%~ /* Filter bar — plain GET form so the filters are shareable URLs. */ '' %>
+<form method="get" action="/cicd/deployments" class="card" style="margin-bottom:14px;">
+  <div class="card-body" style="display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end;">
+    <label style="display:flex;flex-direction:column;gap:4px;">
+      <span class="label-caps small">Project</span>
+      <select name="project" class="dc-in" style="min-width:200px;">
+        <option value="">All projects</option>
+        <% it.projectList.forEach(function (p) { %>
+          <option value="<%= p.id %>" <%= it.filters.project === p.id ? 'selected' : '' %>><%= p.name %></option>
+        <% }) %>
+      </select>
+    </label>
+    <label style="display:flex;flex-direction:column;gap:4px;">
+      <span class="label-caps small">Env</span>
+      <select name="env" class="dc-in">
+        <option value="">All</option>
+        <% it.ENVS.forEach(function (e) { %><option value="<%= e %>" <%= it.filters.env === e ? 'selected' : '' %>><%= e %></option><% }) %>
+      </select>
+    </label>
+    <label style="display:flex;flex-direction:column;gap:4px;">
+      <span class="label-caps small">Channel / pipeline</span>
+      <select name="channel" class="dc-in" style="min-width:150px;">
+        <option value="">All</option>
+        <% it.channelOptions.forEach(function (c) { %><option value="<%= c %>" <%= it.filters.channel === c ? 'selected' : '' %>><%= c %></option><% }) %>
+      </select>
+    </label>
+    <label style="display:flex;flex-direction:column;gap:4px;">
+      <span class="label-caps small">Status</span>
+      <select name="status" class="dc-in">
+        <option value="">All</option>
+        <% it.statusOptions.forEach(function (s) { %><option value="<%= s %>" <%= it.filters.status === s ? 'selected' : '' %>><%= s %></option><% }) %>
+      </select>
+    </label>
+    <label style="display:flex;flex-direction:column;gap:4px;flex:1;min-width:160px;">
+      <span class="label-caps small">Search</span>
+      <input type="search" name="q" class="dc-in" placeholder="version, person, message…" value="<%= it.filters.q %>" />
+    </label>
+    <div style="display:flex;gap:8px;">
+      <button class="btn btn-primary" type="submit" style="padding:6px 14px;">Apply</button>
+      <a class="btn btn-ghost" href="/cicd/deployments" style="padding:6px 14px;">Clear</a>
+    </div>
+  </div>
+</form>
+
 <div class="card"><div class="card-body flush"><table class="tbl">
   <thead><tr><th>Status</th><th>Project</th><th>Version</th><th>Env</th><th>Pipeline</th><th>Triggered by</th><th>When</th></tr></thead>
   <tbody>
+    <% if (!it.deployments.length) { %>
+      <tr><td colspan="7"><div class="empty-state">No deployments match these filters.</div></td></tr>
+    <% } %>
     <% it.deployments.forEach(function (d) { %>
       <% var p = it.projectsById[d.projectId]; %>
       <tr class="row-link" onclick="location.href='/cicd/deployments/<%= d.id %>'">
@@ -17,3 +65,4 @@
     <% }) %>
   </tbody>
 </table></div></div>
+<div class="small faint" style="margin-top:8px;">Showing <%= it.deployments.length %> of <%= it.total %> recent deployment<%= it.total === 1 ? '' : 's' %><% if (it.filters.project || it.filters.env || it.filters.channel || it.filters.status || it.filters.q) { %> · <a href="/cicd/deployments">clear filters</a><% } %></div>
