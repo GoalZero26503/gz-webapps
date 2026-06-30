@@ -19,6 +19,12 @@
 <% var isLiveCell = function (channelKey, e, version) { var m = it.channelLive && it.channelLive[channelKey]; return !!(m && m[e] === version); }; %>
 <% var liveEnvs = function (channelKey, version) { return it.ENVS.filter(function (e) { return isLiveCell(channelKey, e, version); }); }; %>
 
+<% if (it.warn) { %>
+  <div class="small" style="color:var(--yellow);background:rgba(255,205,29,.08);border:1px solid rgba(255,205,29,.25);border-radius:6px;padding:9px 12px;margin-bottom:12px;display:flex;align-items:center;gap:10px;">
+    <span style="flex:1;">⚠ <%= it.warn %></span>
+    <button type="button" class="btn btn-ghost sm" style="padding:2px 8px;" onclick="this.closest('div').remove()">Dismiss</button>
+  </div>
+<% } %>
 <div class="page-head">
   <div>
     <div style="display:flex;align-items:center;gap:10px;"><h1><%= it.project.name %></h1><%~ it.typeBadge(it.project.type) %></div>

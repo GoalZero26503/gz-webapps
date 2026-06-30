@@ -221,7 +221,7 @@ export async function pageRoutes(app: FastifyInstance): Promise<void> {
     return reply.view('partials/project-rows.eta', await projectsData(request.query));
   });
 
-  app.get<{ Params: { id: string }; Querystring: { tab?: string; edit?: string } }>('/cicd/projects/:id', { preHandler: requireAuth }, async (request, reply) => {
+  app.get<{ Params: { id: string }; Querystring: { tab?: string; edit?: string; warn?: string } }>('/cicd/projects/:id', { preHandler: requireAuth }, async (request, reply) => {
     const [project, deployments] = await Promise.all([
       platform.getProject(request.params.id),
       platform.listDeployments({ projectId: request.params.id }),
@@ -389,6 +389,7 @@ export async function pageRoutes(app: FastifyInstance): Promise<void> {
       artifactTotal: allArtifacts.length,
       artifactNextOffset: allArtifacts.length > ARTIFACT_PAGE ? ARTIFACT_PAGE : null,
       tab,
+      warn: request.query.warn || null,
       deployConfig,
       editing,
       deployConfigJson: deployConfig ? JSON.stringify(deployConfig) : '{}',
@@ -551,9 +552,14 @@ export async function pageRoutes(app: FastifyInstance): Promise<void> {
       try {
         const result = await platform.cutRelease(request.params.id, { deploymentId, version, by: request.user!.email });
         if (result.publish_status === 'failed') return fail(result.publish_error || 'release publish error');
+        // A redirect's response body is never shown (htmx navigates away), so a
+        // partial failure (e.g. a component release that couldn't be tagged) must ride
+        // along as a query param the next page renders as a visible banner — otherwise
+        // it's silently lost behind the "success" navigation.
+        const warnQs = result.warning ? `&warn=${encodeURIComponent(result.warning)}` : '';
         // Non-empty body + explicit content-type: an empty 200 gets malformed over
         // HTTP/2 by the Lambda-URL/CloudFront path, aborting the HX-Redirect.
-        reply.header('HX-Redirect', `/cicd/projects/${request.params.id}?tab=builds`);
+        reply.header('HX-Redirect', `/cicd/projects/${request.params.id}?tab=builds${warnQs}`);
         return reply.type('text/html').send('<div class="small faint">Release cut…</div>');
       } catch (err) {
         return fail(err instanceof Error ? err.message : 'error');
