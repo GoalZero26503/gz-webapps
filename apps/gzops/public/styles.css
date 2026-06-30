@@ -854,8 +854,12 @@ details.collapse[open] summary::before { transform: rotate(90deg); }
 .stage-cell:has(input:checked) span::before { content: '✓'; }
 .stage-cell:has(input:focus-visible) { outline: 2px solid var(--border-focus); outline-offset: 1px; }
 
-/* Matrix cell whose row version is BEHIND what's live on a versioned channel — click
-   to revert (delete versions ahead). Reads as "v{live} is live; ↩ to go back". */
-.cell-revert { display: inline-flex; align-items: center; gap: 3px; padding: 2px 7px; border: 1px solid var(--yellow, #d6b34a); border-radius: var(--radius-sm); background: transparent; color: var(--yellow, #d6b34a); font-family: var(--font-mono, monospace); font-size: 11px; line-height: 1.4; cursor: pointer; transition: all 0.12s ease; }
-.cell-revert:hover { background: var(--yellow, #d6b34a); color: var(--text-inverse, #15160f); }
-.cell-revert:focus-visible { outline: 2px solid var(--border-focus); outline-offset: 1px; }
+/* Kits & Releases matrix slot where THIS version isn't live: shows the version that IS
+   live (if any) + ↗; click to queue a deploy of this version here. Checked = queued. */
+.deploy-slot { display: inline-flex; align-items: center; justify-content: center; gap: 4px; min-width: 46px; padding: 3px 8px; border: 1px dashed var(--border); border-radius: var(--radius-sm); cursor: pointer; color: var(--text-tertiary); font-family: var(--font-mono, monospace); font-size: 11px; line-height: 1.3; transition: all 0.12s ease; user-select: none; }
+.deploy-slot:hover { border-color: var(--border-focus); color: var(--gz-green); background: var(--gz-green-dim); }
+.deploy-slot input { position: absolute; opacity: 0; width: 0; height: 0; }
+.deploy-slot .arrow::after { content: '↗'; }
+.deploy-slot:has(input:checked) { background: var(--gz-green); border: 1px solid transparent; color: var(--text-inverse); font-weight: 700; }
+.deploy-slot:has(input:checked) .arrow::after { content: '✓'; }
+.deploy-slot:has(input:focus-visible) { outline: 2px solid var(--border-focus); outline-offset: 1px; }
