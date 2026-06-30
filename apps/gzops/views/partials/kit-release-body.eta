@@ -23,19 +23,15 @@
   <% } %>
 
   <% var scope = it.deployScope || 'none'; var interactive = scope === 'all' || scope === 'dev'; %>
-  <%~ /* Per cell, reality (env-state) not history: isLive = this version is the one
-        currently deployed there. liveV = whatever IS live (may be another version).
-        ahead = this version is newer than live (stageable forward) vs behind (needs
-        delete-ahead on a versioned channel). histId links the live deployment. */ '' %>
+  <%~ /* Reality, not history. Per channel×env slot: isLive = THIS version is the one
+        currently deployed there → "v ✓" (green). Otherwise the slot shows whatever IS
+        live (liveV) with a ↗ — click to queue a deploy of THIS version there. No
+        promote/revert distinction: every non-live slot is just "deploy this here". */ '' %>
   <% var cellState = function (c, e) {
        var liveV = it.channelLive && it.channelLive[c.key] ? it.channelLive[c.key][e] : null;
-       var versioned = it.channelVersioned ? !!it.channelVersioned[c.key] : true;
-       var thisIdx = it.releaseOrder ? it.releaseOrder.indexOf(it.r.version) : -1;
-       var liveIdx = (liveV && it.releaseOrder) ? it.releaseOrder.indexOf(liveV) : 9999;
-       return { liveV: liveV, isLive: !!liveV && liveV === it.r.version, versioned: versioned,
-                ahead: thisIdx >= 0 && thisIdx < liveIdx, histId: c.cells[e] };
+       return { liveV: liveV, isLive: !!liveV && liveV === it.r.version, histId: c.cells[e] };
      }; %>
-  <div class="label-caps" style="margin-bottom:6px;">Deployed to<% if (interactive) { %> <span class="small faint" style="text-transform:none;letter-spacing:0;">· check empty cells to stage a deploy<% if (scope === 'dev') { %> (dev only — cut a release to deploy further)<% } %></span><% } %></div>
+  <div class="label-caps" style="margin-bottom:6px;">Deployed to<% if (interactive) { %> <span class="small faint" style="text-transform:none;letter-spacing:0;">· click a slot to queue it<% if (scope === 'dev') { %> (dev only — cut a release to deploy further)<% } %></span><% } %></div>
 
   <% if (interactive) { %>
     <form hx-post="/cicd/projects/<%= it.projectId %>/kit-deploy/review" hx-target="#deploy-review-<%= rid %>" hx-swap="innerHTML">
@@ -47,21 +43,14 @@
             <% it.ENVS.forEach(function (e) { var stageable = scope === 'all' || e === 'dev'; var s = cellState(c, e); %>
               <td style="text-align:center;">
                 <% if (s.isLive) { %>
-                  <% if (s.histId) { %><a class="badge ok" href="/cicd/deployments/<%= s.histId %>" title="Live now — v<%= it.r.version %>">✓</a><% } else { %><span class="badge ok" title="Live now — v<%= it.r.version %>">✓</span><% } %>
-                <% } else if (s.liveV && !s.versioned && stageable) { %>
-                  <%~ /* fixed pointer, another version live → re-target by re-deploying this one */ '' %>
-                  <label class="stage-cell" title="Re-deploy v<%= it.r.version %> here — v<%= s.liveV %> is live now"><input type="checkbox" name="target" value="<%= c.key %>|<%= e %>" /><span aria-hidden="true">↩</span></label>
-                <% } else if (s.liveV && s.versioned && s.ahead && stageable) { %>
-                  <%~ /* versioned, newer than live → stage forward */ '' %>
-                  <label class="stage-cell" title="Deploy v<%= it.r.version %> — newer than live v<%= s.liveV %>"><input type="checkbox" name="target" value="<%= c.key %>|<%= e %>" /><span aria-hidden="true">+</span></label>
-                <% } else if (s.liveV && s.versioned && !s.ahead && stageable && (e === 'dev' || it.isAdmin)) { %>
-                  <%~ /* versioned & behind live → revert = delete every version ahead so this one becomes newest */ '' %>
-                  <button type="button" class="cell-revert" data-revert-project="<%= it.projectId %>" data-revert-channel="<%= c.key %>" data-revert-channel-label="<%= c.name %>" data-revert-version="<%= it.r.version %>" data-revert-env="<%= e %>" data-revert-live="<%= s.liveV %>" title="Revert to v<%= it.r.version %> — deletes v<%= s.liveV %> and any newer (v<%= s.liveV %> is live now)">↩ <%= s.liveV %></button>
-                <% } else if (s.liveV) { %>
-                  <%~ /* another version live; not revertable from here (not stageable, or no permission) */ '' %>
-                  <span class="faint small mono" title="v<%= s.liveV %> is live here<%= s.versioned ? ' — delete newer versions to revert to v' + it.r.version : '' %>"><%= s.liveV %></span>
+                  <% if (s.histId) { %><a class="badge ok mono" href="/cicd/deployments/<%= s.histId %>" title="v<%= it.r.version %> is live here">v<%= it.r.version %> ✓</a><% } else { %><span class="badge ok mono" title="v<%= it.r.version %> is live here">v<%= it.r.version %> ✓</span><% } %>
                 <% } else if (stageable) { %>
-                  <label class="stage-cell" title="Deploy <%= c.name %> → <%= e %>"><input type="checkbox" name="target" value="<%= c.key %>|<%= e %>" /><span aria-hidden="true">+</span></label>
+                  <label class="deploy-slot" title="Queue: deploy v<%= it.r.version %> to <%= c.name %> · <%= e %><%= s.liveV ? ' (v' + s.liveV + ' live now)' : '' %>">
+                    <input type="checkbox" name="target" value="<%= c.key %>|<%= e %>" />
+                    <% if (s.liveV) { %><span class="dv"><%= s.liveV %></span><% } %><span class="arrow" aria-hidden="true"></span>
+                  </label>
+                <% } else if (s.liveV) { %>
+                  <span class="faint small mono" title="v<%= s.liveV %> is live here">v<%= s.liveV %></span>
                 <% } else { %>
                   <span class="faint" style="opacity:.3;" title="Cut a release to deploy beyond dev">🔒</span>
                 <% } %>
@@ -70,7 +59,7 @@
           </tr>
         <% }) %>
       </tbody></table>
-      <button class="btn" type="submit" style="margin-top:10px;padding:4px 10px;font-size:12px;">Review deploy →</button>
+      <button class="btn btn-primary" type="submit" style="margin-top:10px;padding:5px 14px;font-size:12px;">Deploy →</button>
     </form>
     <div id="deploy-review-<%= rid %>"></div>
   <% } else { %>
@@ -78,7 +67,7 @@
       <% it.r.channels.forEach(function (c) { %>
         <tr><td><%= c.name %></td>
           <% it.ENVS.forEach(function (e) { var s = cellState(c, e); %>
-            <td style="text-align:center;"><% if (s.isLive) { %><% if (s.histId) { %><a class="badge ok" href="/cicd/deployments/<%= s.histId %>" title="Live now">✓</a><% } else { %><span class="badge ok" title="Live now">✓</span><% } %><% } else if (s.liveV) { %><span class="faint small mono" title="v<%= s.liveV %> is live here"><%= s.liveV %></span><% } else { %><span class="faint" style="opacity:.35;">·</span><% } %></td>
+            <td style="text-align:center;"><% if (s.isLive) { %><% if (s.histId) { %><a class="badge ok mono" href="/cicd/deployments/<%= s.histId %>" title="v<%= it.r.version %> is live here">v<%= it.r.version %> ✓</a><% } else { %><span class="badge ok mono" title="v<%= it.r.version %> is live here">v<%= it.r.version %> ✓</span><% } %><% } else if (s.liveV) { %><span class="faint small mono" title="v<%= s.liveV %> is live here">v<%= s.liveV %></span><% } else { %><span class="faint" style="opacity:.35;">·</span><% } %></td>
           <% }) %>
         </tr>
       <% }) %>

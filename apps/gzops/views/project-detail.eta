@@ -125,7 +125,7 @@
           <% } %>
           <span class="small faint"><%~ it.timeAgo(r.at) %></span>
         </summary>
-        <%~ include('partials/kit-release-body', { r: r, ENVS: it.ENVS, deployScope: it.canDeploy ? 'dev' : 'none', projectId: it.project.id, channelLive: it.channelLive, channelVersioned: it.channelVersioned, releaseOrder: it.releaseOrder, isAdmin: it.isAdmin }) %>
+        <%~ include('partials/kit-release-body', { r: r, ENVS: it.ENVS, deployScope: it.canDeploy ? 'dev' : 'none', projectId: it.project.id, channelLive: it.channelLive })  %>
       </details>
     <% }) %>
   </div></div>
@@ -148,7 +148,7 @@
           <% if (r.bundle) { %><a class="small" href="/cicd/artifacts/<%= r.bundle.hashId %>/<%= r.bundle.artifactId %>/download" onclick="event.stopPropagation();" title="Download kit bundle (<%= r.bundle.name %>)">bundle ↓</a><% } %>
           <% if (r.at) { %><span class="small faint"><%~ it.timeAgo(r.at) %></span><% } %>
         </summary>
-        <%~ include('partials/kit-release-body', { r: r, ENVS: it.ENVS, deployScope: (it.canDeploy && !r.imported) ? 'all' : 'none', projectId: it.project.id, channelLive: it.channelLive, channelVersioned: it.channelVersioned, releaseOrder: it.releaseOrder, isAdmin: it.isAdmin }) %>
+        <%~ include('partials/kit-release-body', { r: r, ENVS: it.ENVS, deployScope: (it.canDeploy && !r.imported) ? 'all' : 'none', projectId: it.project.id, channelLive: it.channelLive })  %>
       </details>
     <% }) %>
   </div></div>
