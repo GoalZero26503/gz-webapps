@@ -65,7 +65,9 @@
           </tr>
         <% }) %>
       </tbody></table>
-      <button class="btn btn-primary" type="submit" style="margin-top:10px;padding:5px 14px;font-size:12px;">Deploy →</button>
+      <div style="display:flex;justify-content:flex-end;margin-top:10px;">
+        <button class="btn btn-primary deploy-go" type="submit" style="padding:5px 14px;font-size:12px;" disabled title="Select at least one slot to deploy">Deploy →</button>
+      </div>
     </form>
     <div id="deploy-review-<%= rid %>"></div>
   <% } else { %>
