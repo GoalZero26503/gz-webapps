@@ -141,7 +141,14 @@
         <summary style="cursor:pointer;display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
           <span class="badge info">v<%= r.version %></span>
           <% if (r.prerelease) { %><span class="badge warn" title="Pre-release — not yet deployed to prod. Promotes to a full GitHub release automatically when it lands in prod (any channel).">pre-release</span><% } %>
-          <% if (r.imported) { %><span class="badge" title="Pre-existing GitHub release imported by sync — no gzops composition. Cut it to take ownership.">imported</span><% } %>
+          <% if (r.imported) { %><span class="badge" title="Pre-existing GitHub release imported by sync — no gzops composition. Cut it to take ownership.">imported</span>
+            <% if (it.canDeploy) { var emid = 'enrich-' + r.version.replace(/[^a-zA-Z0-9]/g,'-'); %>
+              <form hx-post="/cicd/projects/<%= it.project.id %>/cut-release" hx-confirm="Cut release v<%= r.version %>? Records its composition from the existing manifest so it becomes deployable, and takes ownership." hx-target="#<%= emid %>" hx-swap="innerHTML" style="display:inline;" onclick="event.stopPropagation();">
+                <input type="hidden" name="version" value="<%= r.version %>" />
+                <button class="btn sm" style="padding:3px 9px;font-size:11px;" type="submit">✂ Cut release</button>
+              </form><span id="<%= emid %>" class="small"></span>
+            <% } %>
+          <% } %>
           <% r.channels.forEach(function (c) { var le = liveEnvs(c.key, r.version); if (le.length) { %><span class="small"><b><%= c.name.replace(/ Release$/i,'') %></b>: <%= le.join(', ') %></span><% } }) %>
           <span class="grow"></span>
           <% if (r.release && r.release.url) { %><a class="small" href="<%= r.release.url %>" target="_blank" rel="noopener" onclick="event.stopPropagation();" title="<%= r.release.notesShort || 'View GitHub Release' %>">GitHub Release ↗</a><% } %>

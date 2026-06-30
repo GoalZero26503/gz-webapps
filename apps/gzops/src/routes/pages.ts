@@ -331,7 +331,7 @@ export async function pageRoutes(app: FastifyInstance): Promise<void> {
           at: r.at,
           isDraft: !cut,
           cutFromDeploymentId,
-          components: r.comps ? Object.entries(r.comps).map(([name, version]) => ({ name, version })) : [],
+          components: Object.entries(r.comps ?? lock?.component_versions ?? {}).map(([name, version]) => ({ name, version })),
           channels: channelKeys.map((key) => ({ name: channelLabel(key), key, cells: r.channels[key] ?? {} })),
           bundle: bundles.get(r.version),
           release: lock ? { url: lock.github?.release_url, status: lock.publish_status, notesShort: lock.release_notes?.short } : undefined,
@@ -351,7 +351,7 @@ export async function pageRoutes(app: FastifyInstance): Promise<void> {
           version: lock.version,
           at: lock.locked_at || '',
           isDraft: !cut,
-          components: [],
+          components: Object.entries(lock.component_versions ?? {}).map(([name, version]) => ({ name, version })),
           channels: allChannelKeys.map((key) => ({ name: channelLabel(key), key, cells: {} })),
           release: { url: lock.github?.release_url, status: lock.publish_status, notesShort: lock.release_notes?.short },
           componentReleases: lock.component_releases,
@@ -536,16 +536,20 @@ export async function pageRoutes(app: FastifyInstance): Promise<void> {
   // BFF proxy for Cut Release (two-object model) — freeze a dev kit into an
   // immutable, GitHub-tagged release. HTMX posts the dev deployment to cut from;
   // on success we redirect back to Kits & Releases (the draft is now a release).
-  app.post<{ Params: { id: string }; Body: { deployment_id?: string } }>(
+  app.post<{ Params: { id: string }; Body: { deployment_id?: string; version?: string } }>(
     '/cicd/projects/:id/cut-release',
     { preHandler: requirePermission('deploys:create') },
     async (request, reply) => {
       const escHtml = (s: string): string => s.replace(/[<>&]/g, (c) => (c === '<' ? '&lt;' : c === '>' ? '&gt;' : '&amp;'));
-      const fail = (msg: string): unknown => reply.code(502).type('text/html').send(`<div class="small" style="color:var(--red);">Cut failed: ${escHtml(msg)}</div>`);
+      // 200 (not 5xx) so HTMX swaps the message into the target — a cut/enrich that
+      // can't proceed is a readable outcome, not a server fault.
+      const fail = (msg: string): unknown => reply.type('text/html').send(`<div class="small" style="color:var(--red);">Cut failed: ${escHtml(msg)}</div>`);
+      // deployment_id cuts a dev kit; version enriches an imported release (no deployment).
       const deploymentId = request.body?.deployment_id;
-      if (!deploymentId) return reply.code(400).type('text/html').send('<div class="small" style="color:var(--red);">No dev deployment to cut from — deploy to dev first.</div>');
+      const version = request.body?.version;
+      if (!deploymentId && !version) return reply.code(400).type('text/html').send('<div class="small" style="color:var(--red);">No dev deployment to cut from — deploy to dev first.</div>');
       try {
-        const result = await platform.cutRelease(request.params.id, { deploymentId, by: request.user!.email });
+        const result = await platform.cutRelease(request.params.id, { deploymentId, version, by: request.user!.email });
         if (result.publish_status === 'failed') return fail(result.publish_error || 'release publish error');
         // Non-empty body + explicit content-type: an empty 200 gets malformed over
         // HTTP/2 by the Lambda-URL/CloudFront path, aborting the HX-Redirect.
