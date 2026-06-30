@@ -365,7 +365,7 @@ class PlatformClient {
   async cutRelease(
     projectId: string,
     input: { deploymentId?: string; version?: string; by?: string },
-  ): Promise<{ version?: string; git_sha?: string; publish_status?: string; already_cut?: boolean; enriched?: boolean; publish_error?: string; github?: { release_url?: string } | null }> {
+  ): Promise<{ version?: string; git_sha?: string; publish_status?: string; already_cut?: boolean; enriched?: boolean; publish_error?: string; warning?: string; github?: { release_url?: string } | null }> {
     if (this.isFake) return { version: '0.0.0', publish_status: 'published', github: null };
     // deployment_id cuts a dev kit; version enriches an imported release (no deployment).
     return this.postJson(`/projects/${encodeURIComponent(projectId)}/cut-release`, { deployment_id: input.deploymentId, version: input.version, by: input.by });
