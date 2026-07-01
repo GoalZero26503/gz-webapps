@@ -219,6 +219,15 @@ h2 {
   background: var(--gz-green-muted);
 }
 
+/* CHECK button — an intermediate "verify targets" step before the green DEPLOY. */
+.btn-check {
+  background: var(--yellow);
+  border-color: transparent;
+  color: var(--text-inverse);
+  font-weight: 700;
+}
+.btn-check:hover { filter: brightness(1.08); }
+
 .btn-ghost {
   background: transparent;
   border-color: transparent;
