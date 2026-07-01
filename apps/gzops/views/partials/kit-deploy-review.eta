@@ -1,18 +1,22 @@
+<%~ /* Verified (post-CHECK) confirm section. Same shell as the pre-check card in
+      client/deploy-confirm.ts, now with the resolved target list + warnings and the
+      DEPLOY button (bottom-right, like a form submit). */ '' %>
 <div class="dc-card" style="padding:14px;margin-top:10px;border:1px solid var(--border-focus);">
-  <div class="label-caps" style="margin-bottom:8px;">Confirm deploy · v<%= it.kitVersion %> → <%= it.targets.length %> target<%= it.targets.length === 1 ? '' : 's' %></div>
+  <div class="label-caps" style="margin-bottom:10px;">Confirm deploy · v<%= it.kitVersion %> · <%= it.targets.length %> target<%= it.targets.length === 1 ? '' : 's' %></div>
   <div style="margin-bottom:10px;">
     <% it.targets.forEach(function (t) { %>
       <div class="small mono" style="padding:4px 0;border-bottom:1px solid var(--border);"><b><%= t.label.replace(/ Release$/i,'') %></b> → <%= t.env %><% if (t.isWarehouse) { %> <span style="color:var(--yellow);">⚠ factory</span><% } %><% if (t.isProd) { %> <span style="color:var(--red);">⚠ prod</span><% } %><% if (t.removesLive) { %> <span style="color:var(--yellow);">↩ removes v<%= t.liveV %> (& newer)</span><% } %></div>
     <% }) %>
   </div>
+  <% if (it.verifyWarn) { %><div class="small" style="color:var(--yellow);background:rgba(255,205,29,.08);border:1px solid rgba(255,205,29,.25);border-radius:6px;padding:8px 11px;margin-bottom:8px;">⚠ <%= it.verifyWarn %></div><% } %>
   <% if (it.anyRemovesLive) { %><div class="small" style="color:var(--yellow);background:rgba(255,205,29,.08);border:1px solid rgba(255,205,29,.25);border-radius:6px;padding:8px 11px;margin-bottom:8px;">This is a <b>roll-back</b>: on the marked channel(s), v<%= it.kitVersion %> is older than what's live, so deploying it <b>deletes the newer version(s)</b> from that channel so v<%= it.kitVersion %> becomes live. Builds are kept — you can re-deploy a newer version later.</div><% } %>
   <% if (it.anyWarehouse) { %><div class="small" style="color:var(--yellow);background:rgba(255,205,29,.08);border:1px solid rgba(255,205,29,.25);border-radius:6px;padding:8px 11px;margin-bottom:8px;">Includes the <b>warehouse</b> channel — factory units auto-update on next boot. Make sure this is intended.</div><% } %>
   <% if (it.anyProd) { %><div class="small" style="color:var(--red);background:var(--red-dim);border:1px solid rgba(255,83,29,.3);border-radius:6px;padding:8px 11px;margin-bottom:8px;">Includes <b>PRODUCTION</b> — devices in the field will receive this release.</div><% } %>
-  <form hx-post="/cicd/projects/<%= it.projectId %>/kit-deploy/submit" hx-target="#deploy-submit-msg" hx-swap="innerHTML">
+  <form hx-post="/cicd/projects/<%= it.projectId %>/kit-deploy/submit" hx-target="#deploy-submit-msg" hx-swap="innerHTML" style="display:flex;justify-content:flex-end;align-items:center;gap:10px;">
     <input type="hidden" name="kit_version" value="<%= it.kitVersion %>" />
     <input type="hidden" name="versions" value="<%= it.versionsJson %>" />
     <% it.targets.forEach(function (t) { %><input type="hidden" name="target" value="<%= t.key %>|<%= t.env %>" /><% }) %>
-    <button class="btn btn-primary" type="submit" style="padding:5px 12px;font-size:12px;">Deploy <%= it.targets.length %> target<%= it.targets.length === 1 ? '' : 's' %></button>
-    <span id="deploy-submit-msg" class="small" style="margin-left:10px;"></span>
+    <span id="deploy-submit-msg" class="small"></span>
+    <button class="btn btn-primary" type="submit" style="padding:5px 14px;font-size:12px;">Deploy <%= it.targets.length %> target<%= it.targets.length === 1 ? '' : 's' %></button>
   </form>
 </div>

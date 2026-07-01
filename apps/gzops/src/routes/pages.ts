@@ -650,44 +650,62 @@ export async function pageRoutes(app: FastifyInstance): Promise<void> {
     async (request, reply) => {
       const b = request.body ?? {};
       const targets = parseTargets(b.target);
-      // Live-rendered on every slot toggle: nothing selected → clear the section.
+      // Nothing selected → clear the section (shouldn't happen via CHECK, but safe).
       if (!b.kit_version || targets.length === 0) return reply.type('text/html').send('');
-      // "Deploy = make live": on a versioned channel (app-release), deploying a version
-      // older than what's live there removes the newer ones. Flag those targets so the
-      // review screen warns before confirm. Live version per channel×env comes from
-      // env-state (enriched project.channels, keyed by label); versioned-ness from the
-      // deploy-config path_template.
-      const [proj, dc] = await Promise.all([
-        platform.getProject(request.params.id),
-        platform.getDeployConfig(request.params.id).catch(() => null),
-      ]);
-      const versionedByKey: Record<string, boolean> = {};
-      for (const p of dc?.deploy_pipelines ?? []) {
-        if (p.plugin === 'firmware-kit-deploy') versionedByKey[p.name] = ((p.config as { path_template?: string } | undefined)?.path_template ?? '').includes('{version}');
+      const rid = b.kit_version.replace(/[^a-zA-Z0-9]/g, '-');
+      try {
+        // "Deploy = make live": on a versioned channel (app-release), deploying a version
+        // older than what's live there removes the newer ones. Flag those targets so the
+        // review screen warns before confirm. Live version per channel×env comes from
+        // env-state (enriched project.channels); versioned-ness from the deploy-config.
+        // Both reads are best-effort — if either fails we still show the list, but note
+        // that roll-back detection may be incomplete rather than blocking the deploy.
+        const [proj, dc] = await Promise.all([
+          platform.getProject(request.params.id).catch(() => null),
+          platform.getDeployConfig(request.params.id).catch(() => null),
+        ]);
+        const versionedByKey: Record<string, boolean> = {};
+        for (const p of dc?.deploy_pipelines ?? []) {
+          if (p.plugin === 'firmware-kit-deploy') versionedByKey[p.name] = ((p.config as { path_template?: string } | undefined)?.path_template ?? '').includes('{version}');
+        }
+        const cmpVer = (x: string, y: string): number => {
+          const px = x.split('.').map((n) => parseInt(n, 10) || 0);
+          const py = y.split('.').map((n) => parseInt(n, 10) || 0);
+          for (let i = 0; i < Math.max(px.length, py.length); i++) { const d = (px[i] || 0) - (py[i] || 0); if (d) return d; }
+          return 0;
+        };
+        const liveOf = (key: string, env: Env): string | undefined => proj?.channels?.[channelLabel(key)]?.[env]?.v;
+        const rows = targets
+          .map((t) => {
+            const liveV = liveOf(t.key, t.env as Env);
+            const removesLive = !!(versionedByKey[t.key] && liveV && liveV !== '—' && cmpVer(b.kit_version!, liveV) < 0);
+            return { ...t, label: channelLabel(t.key), isProd: t.env === 'prod', isWarehouse: /warehouse/i.test(t.key), removesLive, liveV: removesLive ? liveV : null };
+          })
+          .sort((a, b2) => ENVS.indexOf(a.env as Env) - ENVS.indexOf(b2.env as Env));
+        return reply.view('partials/kit-deploy-review.eta', {
+          projectId: request.params.id,
+          kitVersion: b.kit_version,
+          versionsJson: b.versions ?? '{}',
+          targets: rows,
+          anyProd: rows.some((r) => r.isProd),
+          anyWarehouse: rows.some((r) => r.isWarehouse),
+          anyRemovesLive: rows.some((r) => r.removesLive),
+          verifyWarn: (!proj || !dc) ? "Couldn't read current deployed versions — roll-back detection may be incomplete." : null,
+        });
+      } catch (err) {
+        // Unexpected verify failure → keep the confirm card with a readable error + a
+        // Retry button (posts the same form again), so the user isn't stuck.
+        const esc = (s: string): string => s.replace(/[<>&"]/g, (c) => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;' }[c]!));
+        const noun = `${targets.length} target${targets.length === 1 ? '' : 's'}`;
+        return reply.type('text/html').send(
+          `<div class="dc-card" style="padding:14px;margin-top:10px;border:1px solid var(--border-focus);">` +
+          `<div class="label-caps" style="margin-bottom:10px;">Confirm deploy · v${esc(b.kit_version!)} · ${noun}</div>` +
+          `<div class="small" style="color:var(--red);margin-bottom:10px;">Couldn't verify targets: ${esc(err instanceof Error ? err.message : 'error')}</div>` +
+          `<div style="display:flex;justify-content:flex-end;">` +
+          `<button type="button" class="btn btn-check" style="padding:5px 14px;font-size:12px;" hx-post="/cicd/projects/${esc(request.params.id)}/kit-deploy/review" hx-include="#deploy-form-${esc(rid)}" hx-target="#deploy-review-${esc(rid)}" hx-swap="innerHTML">Retry check</button>` +
+          `</div></div>`,
+        );
       }
-      const cmpVer = (x: string, y: string): number => {
-        const px = x.split('.').map((n) => parseInt(n, 10) || 0);
-        const py = y.split('.').map((n) => parseInt(n, 10) || 0);
-        for (let i = 0; i < Math.max(px.length, py.length); i++) { const d = (px[i] || 0) - (py[i] || 0); if (d) return d; }
-        return 0;
-      };
-      const liveOf = (key: string, env: Env): string | undefined => proj?.channels?.[channelLabel(key)]?.[env]?.v;
-      const rows = targets
-        .map((t) => {
-          const liveV = liveOf(t.key, t.env as Env);
-          const removesLive = !!(versionedByKey[t.key] && liveV && liveV !== '—' && cmpVer(b.kit_version!, liveV) < 0);
-          return { ...t, label: channelLabel(t.key), isProd: t.env === 'prod', isWarehouse: /warehouse/i.test(t.key), removesLive, liveV: removesLive ? liveV : null };
-        })
-        .sort((a, b2) => ENVS.indexOf(a.env as Env) - ENVS.indexOf(b2.env as Env));
-      return reply.view('partials/kit-deploy-review.eta', {
-        projectId: request.params.id,
-        kitVersion: b.kit_version,
-        versionsJson: b.versions ?? '{}',
-        targets: rows,
-        anyProd: rows.some((r) => r.isProd),
-        anyWarehouse: rows.some((r) => r.isWarehouse),
-        anyRemovesLive: rows.some((r) => r.removesLive),
-      });
     },
   );
 

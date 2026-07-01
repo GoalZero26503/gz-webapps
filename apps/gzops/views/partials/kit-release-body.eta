@@ -40,10 +40,11 @@
   <% } %>
 
   <% if (interactive) { %>
-    <%~ /* No intermediate "Deploy" button: toggling any slot re-renders the Confirm
-          Deploy section live (empty when nothing selected). The confirm section carries
-          the single Deploy button + rollback warnings. */ '' %>
-    <form hx-post="/cicd/projects/<%= it.projectId %>/kit-deploy/review" hx-trigger="change delay:150ms" hx-target="#deploy-review-<%= rid %>" hx-swap="innerHTML">
+    <%~ /* Selection is instant/client-side (client/deploy-confirm.ts): toggling a slot
+          shows a Confirm Deploy section with just the count + a yellow CHECK button — no
+          request yet. Clicking CHECK posts this form's targets to /kit-deploy/review
+          (one request) to verify + reveal the list/warnings + the DEPLOY button. */ '' %>
+    <form id="deploy-form-<%= rid %>" data-pid="<%= it.projectId %>" data-rid="<%= rid %>" data-kit-version="<%= it.r.version %>">
       <input type="hidden" name="kit_version" value="<%= it.r.version %>" />
       <input type="hidden" name="versions" value="<%= versionsJson %>" />
       <table class="tbl"><thead><tr><th>Channel</th><% it.ENVS.forEach(function (e) { %><th style="text-align:center;"><%= e %></th><% }) %></tr></thead><tbody>
