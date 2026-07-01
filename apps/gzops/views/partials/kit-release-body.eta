@@ -40,7 +40,10 @@
   <% } %>
 
   <% if (interactive) { %>
-    <form hx-post="/cicd/projects/<%= it.projectId %>/kit-deploy/review" hx-target="#deploy-review-<%= rid %>" hx-swap="innerHTML">
+    <%~ /* No intermediate "Deploy" button: toggling any slot re-renders the Confirm
+          Deploy section live (empty when nothing selected). The confirm section carries
+          the single Deploy button + rollback warnings. */ '' %>
+    <form hx-post="/cicd/projects/<%= it.projectId %>/kit-deploy/review" hx-trigger="change delay:150ms" hx-target="#deploy-review-<%= rid %>" hx-swap="innerHTML">
       <input type="hidden" name="kit_version" value="<%= it.r.version %>" />
       <input type="hidden" name="versions" value="<%= versionsJson %>" />
       <table class="tbl"><thead><tr><th>Channel</th><% it.ENVS.forEach(function (e) { %><th style="text-align:center;"><%= e %></th><% }) %></tr></thead><tbody>
@@ -65,9 +68,6 @@
           </tr>
         <% }) %>
       </tbody></table>
-      <div style="display:flex;justify-content:flex-end;margin-top:10px;">
-        <button class="btn btn-primary deploy-go" type="submit" style="padding:5px 14px;font-size:12px;" disabled title="Select at least one slot to deploy">Deploy →</button>
-      </div>
     </form>
     <div id="deploy-review-<%= rid %>"></div>
   <% } else { %>
