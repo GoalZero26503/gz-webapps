@@ -2,9 +2,10 @@
   <div class="label-caps" style="margin-bottom:8px;">Confirm deploy · v<%= it.kitVersion %> → <%= it.targets.length %> target<%= it.targets.length === 1 ? '' : 's' %></div>
   <div style="margin-bottom:10px;">
     <% it.targets.forEach(function (t) { %>
-      <div class="small mono" style="padding:4px 0;border-bottom:1px solid var(--border);"><b><%= t.label.replace(/ Release$/i,'') %></b> → <%= t.env %><% if (t.isWarehouse) { %> <span style="color:var(--yellow);">⚠ factory</span><% } %><% if (t.isProd) { %> <span style="color:var(--red);">⚠ prod</span><% } %></div>
+      <div class="small mono" style="padding:4px 0;border-bottom:1px solid var(--border);"><b><%= t.label.replace(/ Release$/i,'') %></b> → <%= t.env %><% if (t.isWarehouse) { %> <span style="color:var(--yellow);">⚠ factory</span><% } %><% if (t.isProd) { %> <span style="color:var(--red);">⚠ prod</span><% } %><% if (t.removesLive) { %> <span style="color:var(--yellow);">↩ removes v<%= t.liveV %> (& newer)</span><% } %></div>
     <% }) %>
   </div>
+  <% if (it.anyRemovesLive) { %><div class="small" style="color:var(--yellow);background:rgba(255,205,29,.08);border:1px solid rgba(255,205,29,.25);border-radius:6px;padding:8px 11px;margin-bottom:8px;">This is a <b>roll-back</b>: on the marked channel(s), v<%= it.kitVersion %> is older than what's live, so deploying it <b>deletes the newer version(s)</b> from that channel so v<%= it.kitVersion %> becomes live. Builds are kept — you can re-deploy a newer version later.</div><% } %>
   <% if (it.anyWarehouse) { %><div class="small" style="color:var(--yellow);background:rgba(255,205,29,.08);border:1px solid rgba(255,205,29,.25);border-radius:6px;padding:8px 11px;margin-bottom:8px;">Includes the <b>warehouse</b> channel — factory units auto-update on next boot. Make sure this is intended.</div><% } %>
   <% if (it.anyProd) { %><div class="small" style="color:var(--red);background:var(--red-dim);border:1px solid rgba(255,83,29,.3);border-radius:6px;padding:8px 11px;margin-bottom:8px;">Includes <b>PRODUCTION</b> — devices in the field will receive this release.</div><% } %>
   <form hx-post="/cicd/projects/<%= it.projectId %>/kit-deploy/submit" hx-target="#deploy-submit-msg" hx-swap="innerHTML">
