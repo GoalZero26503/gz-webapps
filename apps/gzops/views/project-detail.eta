@@ -53,8 +53,7 @@
       <% if (it.project.type === 'firmware-kit' && it.project.channels) { %>
         <%~ it.channelRail(it.project.channels, navForChannel, true, cellMenuFor) %>
         <div class="rail-legend">
-          <span><span class="warn-flag">⚠</span> warehouse = factory auto-update</span>
-          <span class="rl-line">│ dev is the pre-release (draft) zone — promote left → right</span>
+          <span>dev is the pre-release (draft) zone</span>
         </div>
       <% } else { %>
         <%~ it.rail(it.project.rail || {}, true, navFor) %>
