@@ -653,8 +653,32 @@ export async function pageRoutes(app: FastifyInstance): Promise<void> {
       if (!b.kit_version || targets.length === 0) {
         return reply.type('text/html').send('<div class="small faint">Select one or more cells to deploy.</div>');
       }
+      // "Deploy = make live": on a versioned channel (app-release), deploying a version
+      // older than what's live there removes the newer ones. Flag those targets so the
+      // review screen warns before confirm. Live version per channel×env comes from
+      // env-state (enriched project.channels, keyed by label); versioned-ness from the
+      // deploy-config path_template.
+      const [proj, dc] = await Promise.all([
+        platform.getProject(request.params.id),
+        platform.getDeployConfig(request.params.id).catch(() => null),
+      ]);
+      const versionedByKey: Record<string, boolean> = {};
+      for (const p of dc?.deploy_pipelines ?? []) {
+        if (p.plugin === 'firmware-kit-deploy') versionedByKey[p.name] = ((p.config as { path_template?: string } | undefined)?.path_template ?? '').includes('{version}');
+      }
+      const cmpVer = (x: string, y: string): number => {
+        const px = x.split('.').map((n) => parseInt(n, 10) || 0);
+        const py = y.split('.').map((n) => parseInt(n, 10) || 0);
+        for (let i = 0; i < Math.max(px.length, py.length); i++) { const d = (px[i] || 0) - (py[i] || 0); if (d) return d; }
+        return 0;
+      };
+      const liveOf = (key: string, env: Env): string | undefined => proj?.channels?.[channelLabel(key)]?.[env]?.v;
       const rows = targets
-        .map((t) => ({ ...t, label: channelLabel(t.key), isProd: t.env === 'prod', isWarehouse: /warehouse/i.test(t.key) }))
+        .map((t) => {
+          const liveV = liveOf(t.key, t.env as Env);
+          const removesLive = !!(versionedByKey[t.key] && liveV && liveV !== '—' && cmpVer(b.kit_version!, liveV) < 0);
+          return { ...t, label: channelLabel(t.key), isProd: t.env === 'prod', isWarehouse: /warehouse/i.test(t.key), removesLive, liveV: removesLive ? liveV : null };
+        })
         .sort((a, b2) => ENVS.indexOf(a.env as Env) - ENVS.indexOf(b2.env as Env));
       return reply.view('partials/kit-deploy-review.eta', {
         projectId: request.params.id,
@@ -663,6 +687,7 @@ export async function pageRoutes(app: FastifyInstance): Promise<void> {
         targets: rows,
         anyProd: rows.some((r) => r.isProd),
         anyWarehouse: rows.some((r) => r.isWarehouse),
+        anyRemovesLive: rows.some((r) => r.removesLive),
       });
     },
   );
