@@ -101,9 +101,9 @@ export function railSkeleton(): string {
 export function channelRail(channels: Record<string, Rail>, navFor?: ChannelNavFor, kit = false, menuFor?: (channel: string, env: Env, c: RailCell | null | undefined) => CellMenu | null): string {
   const rows = Object.entries(channels)
     .map(([name, envs]) => {
-      // Warehouse = factory auto-update → flag it so the implication is visible.
-      const warn = kit && /warehouse/i.test(name) ? ' <span class="warn-flag" title="factory auto-update">⚠</span>' : '';
-      return `<span class="env-label">${esc(name)}${warn}</span>${ENVS.map((e, i) => cell(envs[e], navFor ? navFor(name, e) : null, kit && i === 0, menuFor ? menuFor(name, e, envs[e]) : null)).join('')}`;
+      // Status rail is read-only current-state — the warehouse/factory caveat lives
+      // where you act on it (Kits & Releases deploy confirm), not here.
+      return `<span class="env-label">${esc(name)}</span>${ENVS.map((e, i) => cell(envs[e], navFor ? navFor(name, e) : null, kit && i === 0, menuFor ? menuFor(name, e, envs[e]) : null)).join('')}`;
     })
     .join('');
   return `<div class="rail-scroll">${envHeader(true, kit)}<div class="rail labeled${kit ? ' kit' : ''}">${rows}</div></div>`;
