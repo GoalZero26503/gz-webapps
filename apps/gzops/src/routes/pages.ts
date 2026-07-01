@@ -650,9 +650,8 @@ export async function pageRoutes(app: FastifyInstance): Promise<void> {
     async (request, reply) => {
       const b = request.body ?? {};
       const targets = parseTargets(b.target);
-      if (!b.kit_version || targets.length === 0) {
-        return reply.type('text/html').send('<div class="small faint">Select one or more cells to deploy.</div>');
-      }
+      // Live-rendered on every slot toggle: nothing selected → clear the section.
+      if (!b.kit_version || targets.length === 0) return reply.type('text/html').send('');
       // "Deploy = make live": on a versioned channel (app-release), deploying a version
       // older than what's live there removes the newer ones. Flag those targets so the
       // review screen warns before confirm. Live version per channel×env comes from
